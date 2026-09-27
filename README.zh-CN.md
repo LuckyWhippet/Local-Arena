@@ -1,3 +1,8 @@
+> [!CAUTION]
+> **注意**
+> 
+> 本项目因个人工作原因，进行无限期的停止更新，不再进行任何维护和解答，但您依然可以根据协议进行下载、修改以及转发，本项目不再提供任何技术上面的支持
+
 <div align="center">
 
 # Local Arena
@@ -6,6 +11,7 @@
 
 <br/>
 
+这个中文也是一样
 <a href="https://github.com/numakkiyu/Local-Arena/releases"><img alt="发行版本" src="https://img.shields.io/github/v/release/numakkiyu/Local-Arena?display_name=tag&sort=semver"></a>
 <img alt="支持平台" src="https://img.shields.io/badge/platform-Windows-0078D4">
 <a href="LICENSE"><img alt="许可证" src="https://img.shields.io/github/license/numakkiyu/Local-Arena"></a>
