@@ -1,3 +1,7 @@
+> [!CAUTION]
+> **Project Suspension Notice**
+> Due to work and personal reasons, this project will be indefinitely suspended from further updates. However, you may still fork and modify the repository in accordance with the license. Please note that this project will no longer provide any support or updates.
+
 <div align="center">
 
 # Local Arena
@@ -18,6 +22,7 @@
 </div>
 
 > [!IMPORTANT]
+>
 > Local Arena is an independently developed and maintained Windows toolkit for local CS2 matches, player cosmetics, demos, diagnostics, and managed installation
 >
 > Local Arena is not affiliated with, endorsed by, or maintained by [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) or its maintainers. The upstream project does not provide support for Local Arena
@@ -333,55 +338,4 @@ Keep the current version, confirm GitHub connectivity, retry a manual check, and
 
 **Restore original state** returns a managed installation to its recorded pre-install state, which may itself contain a legacy compatible build or upstream plugin
 
-Use **Restore pristine CS2** when all recognized enhanced-plugin files must be removed, then complete Steam file verification before launching the game
-
-### CS2 freezes or crashes
-
-Reopen the Panel immediately and use **Export diagnostics**
-
-Send the ZIP together with the selected mode, map, game type, team, and exact reproduction steps
-
-For team-selection crashes, include how long the game remained on the team selection screen before CT or T was chosen
-
-## Upstream Source and Attribution
-
-Local Arena distributes selected AGPL-3.0 enhanced-bot components derived from [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver), including
-
-1. More capable and human-like bot aim
-2. Situation-aware grenade usage
-3. Improved bot movement and stuck handling
-4. Expanded weapon buying and economy management
-5. Spraying, flicking, smoke spam, and anti-flash behavior
-6. Bot knives, gloves, weapon skins, agents, music kits, avatars, and profiles
-7. More organized and alert bot decision making
-8. Professional and randomized player names based on HLTV data
-9. Bot-friendly game-rule adjustments
-10. Additional console commands and team lineups
-
-The upstream project is a source dependency and attribution target, not a Local Arena support channel. For its original implementation, Linux instructions, and documentation, visit [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver)
-
-## Credits
-
-- [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver)
-- [Metamod:Source](https://github.com/alliedmodders/metamod-source)
-- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp)
-- [Ray-Trace](https://github.com/FUNPLAY-pro-CS2/Ray-Trace)
-- [CS2-Bot-Randomizer](https://github.com/ed0ard/CS2-Bot-Randomizer)
-- [CS2-Bot-Hider](https://github.com/XBribo/CS2-Bot-Hider)
-- [CS2-Bot-Controller](https://github.com/XBribo/CS2-Bot-Controller)
-- [CS2-BotAI](https://github.com/ed0ard/CS2-BotAI)
-- [CS2-Bot-Buy](https://github.com/ed0ard/CS2-Bot-Buy)
-- [CS2-Bot-NadeSystem](https://github.com/ed0ard/CS2-Bot-NadeSystem)
-- [RoundDamageRecap](https://github.com/YuGeYu/LBTV-CS2-Bot-Enhancer/tree/main/addons/counterstrikesharp/plugins/RoundDamageRecap)
-
-## License
-
-[AGPL-3.0](LICENSE)
-
----
-
-<div align="center">
-
-[Back to top](#local-arena)
-
-</div>
+Use **
