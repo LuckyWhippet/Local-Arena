@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
@@ -16,6 +17,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
 {
     private readonly CosmeticStateStore _states = new();
     private readonly HashSet<int> _pendingRerolls = [];
+    private BotRandomizerOptions _options = new();
 
     private CosmeticCatalog? _catalog;
     private CosmeticRoller? _roller;
@@ -32,6 +34,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
+        LoadOptions();
         LoadCatalog();
         LoadAttributeWriter();
 
@@ -42,7 +45,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
         RegisterEventHandler<EventRoundMvp>(OnRoundMvp, HookMode.Pre);
         RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
         RegisterEventHandler<EventItemPickup>(OnItemPickup);
-        if (_weaponItemViews?.NativeAvailable == true)
+        if (_options.Skins && _weaponItemViews?.NativeAvailable == true)
         {
             VirtualFunctions.GiveNamedItemFunc.Hook(OnGiveNamedItemPre, HookMode.Pre);
             _giveNamedItemHooked = true;
@@ -140,10 +143,13 @@ public sealed class BotRandomizerPlugin : BasePlugin
         // Keep constructed item-view storage alive across map transitions. Each view is
         // fully overwritten before reuse and is freed only at slot teardown or unload.
         _applicator?.Reset();
-        foreach (var agent in RandomizerAssets.CounterTerroristAgents)
-            Server.PrecacheModel(agent.ModelPath);
-        foreach (var agent in RandomizerAssets.TerroristAgents)
-            Server.PrecacheModel(agent.ModelPath);
+if (_options.Agents)
+        {
+            foreach (var agent in RandomizerAssets.CounterTerroristAgents)
+                Server.PrecacheModel(agent.ModelPath);
+            foreach (var agent in RandomizerAssets.TerroristAgents)
+                Server.PrecacheModel(agent.ModelPath);
+        }
     }
 
     private void OnClientDisconnect(int playerSlot)
@@ -248,6 +254,9 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
     {
+        if (!_options.HasVisibleFeatures)
+            return HookResult.Continue;
+
         ConsumePendingReroll(@event.Userid);
         var state = GetOrCreateState(@event.Userid);
         if (state is null)
@@ -272,7 +281,8 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnGiveNamedItemPre(DynamicHook hook)
     {
-        if (_catalog is null
+        if (!_options.Skins
+            || _catalog is null
             || _roller is null
             || _weaponItemViews is null)
         {
@@ -324,7 +334,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
     {
-        if (_applicator is null)
+        if (!_options.Skins || _applicator is null)
             return HookResult.Continue;
         if (string.IsNullOrEmpty(@event.Item)
             || (!@event.Item.Contains("knife", StringComparison.Ordinal)
@@ -355,7 +365,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
             return HookResult.Continue;
         }
 
-        if (_roller is null || !IsPlayableTeam(@event.Team))
+        if (!_options.HasVisibleFeatures || _roller is null || !IsPlayableTeam(@event.Team))
         {
             _states.BumpGeneration(player.Slot);
             return HookResult.Continue;
@@ -379,6 +389,9 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
+        if (!_options.Music)
+            return HookResult.Continue;
+
         var state = GetOrCreateState(@event.Userid);
         var player = @event.Userid;
         if (state is null || player is null)
@@ -420,12 +433,12 @@ public sealed class BotRandomizerPlugin : BasePlugin
         if (_applicator is null)
             return;
 
-        if ((scope & CosmeticScope.Agent) != 0)
+        if (_options.Agents && (scope & CosmeticScope.Agent) != 0)
         {
             _applicator.ApplyAgent(pawn, state.Loadout.AgentModel);
         }
 
-        if ((scope & CosmeticScope.MusicKit) != 0)
+        if (_options.Music && (scope & CosmeticScope.MusicKit) != 0)
         {
             ApplyMusicKit(player, state.Loadout.MusicKit, 0);
         }
@@ -437,7 +450,8 @@ public sealed class BotRandomizerPlugin : BasePlugin
         SlotCosmeticState state,
         CosmeticScope scope = CosmeticScope.Knife | CosmeticScope.Gloves)
     {
-        if (_applicator is null
+        if (!_options.Skins
+            || _applicator is null
             || player is not { IsValid: true, IsBot: true }
             || !pawn.IsValid)
         {
@@ -496,7 +510,8 @@ public sealed class BotRandomizerPlugin : BasePlugin
     {
         void Callback()
         {
-            if (_applicator is not null
+            if (_options.Skins
+                && _applicator is not null
                 && TryResolveCurrentBot(slot, userId, generation, out _, out var pawn, out _))
             {
                 _applicator.SyncPickedUpKnife(pawn);
@@ -540,6 +555,10 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private void RestoreBot(int slot, CosmeticScope scope)
     {
+        scope &= EnabledScope;
+        if (scope == CosmeticScope.None)
+            return;
+
         var player = Utilities.GetPlayerFromSlot(slot);
         if (_roller is null
             || player is not { IsValid: true, IsBot: true, IsHLTV: false }
@@ -643,6 +662,36 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private static bool IsPlayableTeam(int team)
         => team is RandomizerAssets.TerroristTeam or RandomizerAssets.CounterTerroristTeam;
+
+    private CosmeticScope EnabledScope
+        => (_options.Skins ? CosmeticScope.Weapons | CosmeticScope.Knife | CosmeticScope.Gloves : CosmeticScope.None)
+            | (_options.Agents ? CosmeticScope.Agent : CosmeticScope.None)
+            | (_options.Music ? CosmeticScope.MusicKit : CosmeticScope.None);
+
+    private void LoadOptions()
+    {
+        var path = Path.Combine(ModuleDirectory, "bot_randomizer_options.json");
+        try
+        {
+            if (!File.Exists(path))
+            {
+                _options = new BotRandomizerOptions();
+                return;
+            }
+
+            _options = JsonSerializer.Deserialize<BotRandomizerOptions>(
+                File.ReadAllText(path),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? new BotRandomizerOptions();
+        }
+        catch (Exception exception)
+        {
+            _options = new BotRandomizerOptions();
+            Logger.LogError(
+                exception,
+                "[BotRandomizer] bot_randomizer_options.json is invalid; all legacy features remain enabled");
+        }
+    }
 
     private static CCSPlayerController? GetPlayerFromItemServices(CCSPlayer_ItemServices itemServices)
     {

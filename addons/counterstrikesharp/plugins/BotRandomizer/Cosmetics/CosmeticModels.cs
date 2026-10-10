@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BotRandomizer;
 
 [Flags]
@@ -117,14 +119,20 @@ internal sealed class BotCosmeticLoadout
     public Dictionary<ushort, WeaponCosmeticSelection> Weapons { get; } = new();
 }
 
-internal sealed class RandomizerOptions
+internal sealed class BotRandomizerOptions
 {
-    public bool Enabled { get; set; } = true;
-    public bool Weapons { get; set; } = true;
-    public bool Knives { get; set; } = true;
-    public bool Gloves { get; set; } = true;
+    [JsonPropertyName("skins")]
+    public bool Skins { get; set; } = true;
+
+    [JsonPropertyName("profiles")]
+    public bool Profiles { get; set; } = true;
+
+    [JsonPropertyName("agents")]
     public bool Agents { get; set; } = true;
+
+    [JsonPropertyName("music")]
     public bool Music { get; set; } = true;
-    public bool Stickers { get; set; } = true;
-    public bool Charms { get; set; } = true;
+
+    [JsonIgnore]
+    public bool HasVisibleFeatures => Skins || Agents || Music;
 }
