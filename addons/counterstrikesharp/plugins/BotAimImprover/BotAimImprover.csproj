@@ -7,21 +7,11 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RayTraceApiPath Condition="'$(RayTraceApiPath)' == ''">$(MSBuildProjectDirectory)\libs\RayTraceApi.dll</RayTraceApiPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.371" />
-    <Reference Include="RayTraceApi">
-      <HintPath>$(RayTraceApiPath)</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\..\shared\MatchCore\BotBehaviorPolicy.cs" Link="BotBehaviorPolicy.cs" />
-    <Compile Include="..\..\shared\MatchCore\BotRuntimeStatus.cs" Link="BotRuntimeStatus.cs" />
-    <Compile Include="..\..\shared\MatchCore\PlusManagedPaths.cs" Link="PlusManagedPaths.cs" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.376" />
   </ItemGroup>
 
 </Project>

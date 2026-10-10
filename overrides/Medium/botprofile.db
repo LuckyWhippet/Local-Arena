@@ -88,9 +88,11 @@ End
 Template SniperPro
 		WeaponPreference = awp
 		WeaponPreference = ak47
+		WeaponPreference = aug
 		WeaponPreference = galilar
 		WeaponPreference = deagle
 		WeaponPreference = m4a1
+		WeaponPreference = sg556
 		WeaponPreference = m4a1_silencer
 		WeaponPreference = p90
 		WeaponPreference = mac10
@@ -102,6 +104,8 @@ End
 
 Template RiflePro
 		WeaponPreference = ak47
+		WeaponPreference = aug
+		WeaponPreference = sg556
 		WeaponPreference = famas
 		WeaponPreference = galilar
 		WeaponPreference = m4a1_silencer
@@ -140,6 +144,7 @@ Template SniperPure
         WeaponPreference = fiveseven
         WeaponPreference = tec9
         WeaponPreference = m4a1
+        WeaponPreference = sg556
         WeaponPreference = m4a1_silencer
         WeaponPreference = p90
         WeaponPreference = mac10
@@ -150,6 +155,7 @@ End
 
 Template Duelist
 		WeaponPreference = ak47
+		WeaponPreference = aug
 		WeaponPreference = p90
 		WeaponPreference = tec9
 		WeaponPreference = fiveseven
@@ -159,6 +165,7 @@ Template Duelist
 		WeaponPreference = mp9
 		WeaponPreference = xm1014
 		WeaponPreference = m4a1_silencer
+		WeaponPreference = sg556
 		WeaponPreference = m4a1
 		WeaponPreference = elite
 End
@@ -189,6 +196,7 @@ Template Fastshot
         WeaponPreference = m4a1
         WeaponPreference = ak47
         WeaponPreference = m4a1_silencer
+        WeaponPreference = sg556
         WeaponPreference = mag7
         WeaponPreference = sawedoff
         WeaponPreference = p90
@@ -207,6 +215,7 @@ Template Camper
     	WeaponPreference = awp
     	WeaponPreference = ak47
     	WeaponPreference = m4a1_silencer
+    	WeaponPreference = sg556
     	WeaponPreference = fiveseven
 		WeaponPreference = tec9
     	WeaponPreference = elite		
@@ -388,16 +397,26 @@ End
 
 ProTop+RiflePro+RiflePersonality "frozen"
 	VoicePitch = 113
-	LookAngleMaxAccelNormal = 20000.0
+	LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
 
 ProSlow+SniperPro+SniperPersonality "broky"
 	VoicePitch = 50
+End
+
+ProPrecise+SniperPro+SniperPersonality "JBOEN"
+	VoicePitch = 104
+	LookAngleMaxAccelNormal = 5500.0
+	LookAngleStiffnessNormal = 1150.0
+	LookAngleDampingNormal = 100.0
+	LookAngleMaxAccelAttacking = 20000.0
+	LookAngleStiffnessAttacking = 900.0
+	LookAngleDampingAttacking = 50.0
 End
 
 ProSlow+RiflePro+RiflePersonality "karrigan"
@@ -416,10 +435,10 @@ End
 
 ProTop+RiflePro+CamperPersonality "ropz"
 	VoicePitch = 108
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.7
 End
@@ -621,10 +640,10 @@ End
 
 ProTop+SniperPure+FastshotPersonality "m0NESY"
 	VoicePitch = 111
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.95
 End
@@ -645,10 +664,10 @@ End
 
 ProTop+RiflePro+RiflePersonality "NiKo"
 	VoicePitch = 100
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -779,20 +798,20 @@ End
 
 ProTop+SniperPro+SniperPersonality "torzsi"
 	VoicePitch = 114
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.7
 End
 
 ProTop+RiflePro+RiflePersonality "xertioN"
 	VoicePitch = 71
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -930,10 +949,10 @@ End
 
 ProTop+Duelist+FreemanPersonality "B1T"
 	VoicePitch = 101
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -950,10 +969,10 @@ End
 
 ProTop+RiflePro+RiflePersonality "iM"
 	VoicePitch = 110
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -961,10 +980,10 @@ End
 
 ProTop+Duelist+RusherPersonality "YEKINDAR"
 	VoicePitch = 101
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -981,10 +1000,10 @@ End
 
 ProTop+Duelist+FastshotPersonality "Twistzz"
 	VoicePitch = 102
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -1102,20 +1121,20 @@ End
 
 ProTop+RiflePro+RiflePersonality "flameZ"
 	VoicePitch = 85
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.7
 End
 
 ProTop+SniperPro+SniperPersonality "ZywOo"
 	VoicePitch = 115
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.95
 End
@@ -1126,20 +1145,20 @@ End
 
 ProTop+RiflePro+RiflePersonality "mezii"
 	VoicePitch = 80
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
 
 ProTop+Duelist+RiflePersonality "Spinx"
 	VoicePitch = 97
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -1228,10 +1247,10 @@ End
 
 ProTop+Scoper+ScoperPersonality "KSCERATO"
 	VoicePitch = 112
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -1932,7 +1951,7 @@ End
 ProSlow+RiflePro+FreemanPersonality "AyeZ"
 	VoicePitch = 75
 End
-ProSteady+RiflePro+FreemanPersonality "Techno4K"
+ProSteady+RiflePro+FreemanPersonality "Techno"
 	VoicePitch = 74
 	LookAngleMaxAccelNormal = 5500.0
 	LookAngleStiffnessNormal = 1150.0
@@ -1946,10 +1965,10 @@ ProSlow+RiflePro+FreemanPersonality "bLitz"
 End
 ProTop+RiflePro+FreemanPersonality "Senzu"
 	VoicePitch = 83
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -1958,10 +1977,10 @@ ProSlow+RiflePro+RiflePersonality "mzinho"
 End
 ProTop+SniperPro+SniperPersonality "910"
 	VoicePitch = 87
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.7
 End
@@ -2504,10 +2523,10 @@ ProSlow+RiflePro+RiflePersonality "DD"
 End
 ProTop+RiflePro+RiflePersonality "XANTARES"
 	VoicePitch = 99
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -3330,6 +3349,9 @@ ProFast+RiflePro+RiflePersonality "Luken"
 	LookAngleStiffnessAttacking = 2000.0
 	LookAngleDampingAttacking = 40.0
 End
+ProSlow+RiflePro+RiflePersonality "max"
+	VoicePitch = 90
+End
 ProSteady+RiflePro+RiflePersonality "dgt"
 	VoicePitch = 93
 	LookAngleMaxAccelNormal = 5500.0
@@ -3701,10 +3723,10 @@ ProSteady+RiflePro+RiflePersonality "chopper"
 End
 ProTop+SniperPro+SniperPersonality "sh1ro"
 	VoicePitch = 84
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.7
 End
@@ -3718,10 +3740,10 @@ ProSteady+RiflePro+RiflePersonality "magixx"
 	LookAngleDampingAttacking = 50.0
 End
 ProTop+RiflePro+RiflePersonality "donk"
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.95
 End
@@ -7756,10 +7778,10 @@ ProFast+RiflePro+RiflePersonality "sm3t"
 End
 ProTop+SniperPure+FastshotPersonality "molodoy"
 	VoicePitch = 83
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.95
 End
@@ -9328,10 +9350,10 @@ ProSlow+RiflePro+FreemanPersonality "spardaus"
 End
 ProTop+RiflePro+RiflePersonality "makazze"
 	VoicePitch = 113
-    LookAngleMaxAccelNormal = 20000.0
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.1
-    LookAngleMaxAccelAttacking = 20000.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.9
 End
@@ -9508,6 +9530,57 @@ ProSteady+RiflePro+RiflePersonality "thamlike"
 End
 ProSlow+RiflePro+FreemanPersonality "Skodo"
 	VoicePitch = 76
+End
+ProSlow+SniperPro+SniperPersonality "dem0n"
+	VoicePitch = 78
+End
+ProSlow+RiflePro+FreemanPersonality "slaxejezzz"
+	VoicePitch = 91
+End
+ProSlow+RiflePro+RiflePersonality "Krabeni"
+	VoicePitch = 91
+End
+ProSlow+RiflePro+RiflePersonality "cmtry"
+	VoicePitch = 91
+End
+ProSteady+RiflePro+FreemanPersonality "tikuak"
+	VoicePitch = 114
+	LookAngleMaxAccelNormal = 5500.0
+	LookAngleStiffnessNormal = 1150.0
+	LookAngleDampingNormal = 100.0
+	LookAngleMaxAccelAttacking = 5500.0
+	LookAngleStiffnessAttacking = 1150.0
+	LookAngleDampingAttacking = 50.0
+End
+ProSteady+RiflePro+RiflePersonality "dziugss"
+	VoicePitch = 114
+	LookAngleMaxAccelNormal = 5500.0
+	LookAngleStiffnessNormal = 1150.0
+	LookAngleDampingNormal = 100.0
+	LookAngleMaxAccelAttacking = 5500.0
+	LookAngleStiffnessAttacking = 1150.0
+	LookAngleDampingAttacking = 50.0
+End
+ProSlow+RiflePro+RiflePersonality "DarkMeister"
+	VoicePitch = 91
+End
+ProSlow+RiflePro+RiflePersonality "F0R3VER"
+	VoicePitch = 91
+End
+ProSlow+RiflePro+FreemanPersonality "AquaRS"
+	VoicePitch = 91
+End
+ProSlow+RiflePro+RiflePersonality "Ltz"
+	VoicePitch = 91
+End
+ProSteady+SniperPro+SniperPersonality "MartinezSa"
+	VoicePitch = 114
+	LookAngleMaxAccelNormal = 5500.0
+	LookAngleStiffnessNormal = 1150.0
+	LookAngleDampingNormal = 100.0
+	LookAngleMaxAccelAttacking = 5500.0
+	LookAngleStiffnessAttacking = 1150.0
+	LookAngleDampingAttacking = 50.0
 End
 ProFast+RiflePro+RiflePersonality "kroK"
 	VoicePitch = 111
@@ -10217,7 +10290,7 @@ ProFast+RiflePro+RiflePersonality "S5J"
 	LookAngleStiffnessAttacking = 2000.0
 	LookAngleDampingAttacking = 40.0
 End
-ProSteady+RiflePro+RiflePersonality "tO0RO"
+ProSteady+SniperPro+SniperPersonality "tO0RO"
 	VoicePitch = 88
 	LookAngleMaxAccelNormal = 5500.0
 	LookAngleStiffnessNormal = 1150.0
@@ -10585,6 +10658,15 @@ End
 ProSlow+SniperPro+SniperPersonality "3gl"
 End
 RankOthers+RiflePro+RiflePersonality "enkay J"
+End
+ProTop+RiflePro+RiflePersonality "forsaken"
+	VoicePitch = 115
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleStiffnessNormal = 3000.0
+    LookAngleDampingNormal = 45.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleStiffnessAttacking = 3000.0
+    LookAngleDampingAttacking = 39.95
 End
 //----------------------------------------------------------------------------
 
@@ -13328,10 +13410,4 @@ ProSteady+RiflePro+FreemanPersonality "damag3"
 	LookAngleMaxAccelAttacking = 5500.0
 	LookAngleStiffnessAttacking = 1150.0
 	LookAngleDampingAttacking = 50.0
-End
-
-ProSteady+RiflePro+RiflePersonality "b1t"
-End
-
-ProSteady+RiflePro+RiflePersonality "MATYS"
 End

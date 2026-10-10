@@ -88,9 +88,11 @@ End
 Template SniperPro
 		WeaponPreference = awp
 		WeaponPreference = ak47
+		WeaponPreference = aug
 		WeaponPreference = galilar
 		WeaponPreference = deagle
 		WeaponPreference = m4a1
+		WeaponPreference = sg556
 		WeaponPreference = m4a1_silencer
 		WeaponPreference = p90
 		WeaponPreference = mac10
@@ -102,6 +104,8 @@ End
 
 Template RiflePro
 		WeaponPreference = ak47
+		WeaponPreference = aug
+		WeaponPreference = sg556
 		WeaponPreference = famas
 		WeaponPreference = galilar
 		WeaponPreference = m4a1_silencer
@@ -140,6 +144,7 @@ Template SniperPure
         WeaponPreference = fiveseven
         WeaponPreference = tec9
         WeaponPreference = m4a1
+        WeaponPreference = sg556
         WeaponPreference = m4a1_silencer
         WeaponPreference = p90
         WeaponPreference = mac10
@@ -150,6 +155,7 @@ End
 
 Template Duelist
 		WeaponPreference = ak47
+		WeaponPreference = aug
 		WeaponPreference = p90
 		WeaponPreference = tec9
 		WeaponPreference = fiveseven
@@ -159,6 +165,7 @@ Template Duelist
 		WeaponPreference = mp9
 		WeaponPreference = xm1014
 		WeaponPreference = m4a1_silencer
+		WeaponPreference = sg556
 		WeaponPreference = m4a1
 		WeaponPreference = elite
 End
@@ -189,6 +196,7 @@ Template Fastshot
         WeaponPreference = m4a1
         WeaponPreference = ak47
         WeaponPreference = m4a1_silencer
+        WeaponPreference = sg556
         WeaponPreference = mag7
         WeaponPreference = sawedoff
         WeaponPreference = p90
@@ -207,6 +215,7 @@ Template Camper
     	WeaponPreference = awp
     	WeaponPreference = ak47
     	WeaponPreference = m4a1_silencer
+    	WeaponPreference = sg556
     	WeaponPreference = fiveseven
 		WeaponPreference = tec9
     	WeaponPreference = elite		
@@ -356,6 +365,10 @@ End
 
 ProSlow+SniperPro+SniperPersonality "broky"
 	VoicePitch = 50
+End
+
+ProPrecise+SniperPro+SniperPersonality "JBOEN"
+	VoicePitch = 104
 End
 
 ProSlow+RiflePro+RiflePersonality "karrigan"
@@ -1001,7 +1014,7 @@ End
 ProSlow+RiflePro+FreemanPersonality "AyeZ"
 	VoicePitch = 75
 End
-ProSteady+RiflePro+FreemanPersonality "Techno4K"
+ProSteady+RiflePro+FreemanPersonality "Techno"
 	VoicePitch = 74
 End
 ProSlow+RiflePro+FreemanPersonality "bLitz"
@@ -1504,6 +1517,9 @@ ProSteady+RiflePro+RiflePersonality "K1-FiDa"
 End
 ProFast+RiflePro+RiflePersonality "Luken"
 	VoicePitch = 104
+End
+ProSlow+RiflePro+RiflePersonality "max"
+	VoicePitch = 90
 End
 ProSteady+RiflePro+RiflePersonality "dgt"
 	VoicePitch = 93
@@ -3959,7 +3975,7 @@ End
 ProFast+RiflePro+RiflePersonality "S5J"
 	VoicePitch = 107
 End
-ProSteady+RiflePro+RiflePersonality "tO0RO"
+ProSteady+SniperPro+SniperPersonality "tO0RO"
 	VoicePitch = 88
 End
 ProSteady+RiflePro+RiflePersonality "HaZR"
@@ -4094,7 +4110,37 @@ ProSlow+SniperPro+SniperPersonality "3gl"
 End
 RankOthers+RiflePro+RiflePersonality "enkay J"
 End
-
+ProSlow+SniperPro+SniperPersonality "dem0n"
+End
+ProSlow+RiflePro+FreemanPersonality "slaxejezzz"
+End
+ProSlow+RiflePro+RiflePersonality "Krabeni"
+End
+ProSlow+RiflePro+RiflePersonality "cmtry"
+End
+ProSteady+RiflePro+FreemanPersonality "tikuak"
+End
+ProSteady+RiflePro+RiflePersonality "dziugss"
+End
+ProSlow+RiflePro+RiflePersonality "DarkMeister"
+End
+ProSlow+RiflePro+RiflePersonality "F0R3VER"
+End
+ProSlow+RiflePro+FreemanPersonality "AquaRS"
+End
+ProSlow+RiflePro+RiflePersonality "Ltz"
+End
+ProSteady+SniperPro+SniperPersonality "MartinezSa"
+End
+ProTop+RiflePro+RiflePersonality "forsaken"
+	VoicePitch = 115
+    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleStiffnessNormal = 3000.0
+    LookAngleDampingNormal = 45.0
+    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleStiffnessAttacking = 3000.0
+    LookAngleDampingAttacking = 39.95
+End
 //----------------------------------------------------------------------------
 
 RankRifler+Rusher+RusherPersonality "NoScopeDad69"
@@ -5138,10 +5184,4 @@ RankOthers+RiflePro+RiflePersonality "Jw1zxm"
 End
 
 ProSteady+RiflePro+FreemanPersonality "damag3"
-End
-
-ProSteady+RiflePro+RiflePersonality "b1t"
-End
-
-ProSteady+RiflePro+RiflePersonality "MATYS"
 End

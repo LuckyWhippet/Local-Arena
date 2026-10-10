@@ -7,19 +7,21 @@ internal static class WindowsPatchDefinitions
     {
 
         // Force HasVisitedEnemySpawn = 1 so bots don't revisit enemy spawn
+        // CCSBot::Reset: initialize the schema-confirmed m_hasVisitedEnemySpawn to true.
         ["HasVisitedEnemySpawn"] = (
-        signature: "40 88 B7 20 05 00 00",
-        patch: "C6 87 20 05 00 00 01",
-        expectedOriginal: "40 88 B7 20 05 00 00",
-        patchOffset: 0
+        signature: "4C 89 B7 ? ? 00 00 48 8D 8C 24 ? ? ? ? 44 88 B7 FD 05 00 00 E8 ? ? ? ? F3 0F 10 87 ? ? 00 00 48 8B F0",
+        patch: "C6 87 FD 05 00 00 01",
+        expectedOriginal: "44 88 B7 FD 05 00 00",
+        patchOffset: 15
         ),
 
-        // NOP the BombState reset to avoid bot confusion
+        // CSGameState::Reset: preserve m_bombState.
+        // the spawn handler clears bomb state when no bomb is planted.
         ["GameState_Reset"] = (
-        signature: "83 7F 0C 00 74 07 C7 47 0C 00 00 00 00",
-        patch: "0F 1F 80 00 00 00 00",
-        expectedOriginal: "C7 47 0C 00 00 00 00",
-        patchOffset: 6
+        signature: "48 8D 4C 24 ? 45 33 F6 44 89 77 0C E8 ? ? ? ? F3 0F 10 47 18 48 8B F0 0F 2E 00",
+        patch: "90 90 90 90",
+        expectedOriginal: "44 89 77 0C",
+        patchOffset: 8
         ),
 
         // IsSafe() always false in IdleState → bots don't idle near safe areas
@@ -113,11 +115,18 @@ internal static class WindowsPatchDefinitions
         patchOffset: 8    // RVA 0x2f1c0c: je+15 → NOP (remove IsWaitingForZoom fire shortcut)
         ),
 
+        // Source: cs_bot_weapon.cpp — CCSBot::FireWeaponAtEnemy
+        //   if (IsUsingSniperRifle()) {
+        //     float fProjectedSpread = rangeToEnemy * GetActiveCSWeapon()->GetInaccuracy();
+        //     float fRequiredSpread  = IsUsing(WEAPON_AWP) ? 50.0f : 25.0f;
+        //     if (fProjectedSpread > fRequiredSpread) return;
+        //   }
+        // NOP the `ja` so snipers fire regardless of spread.
         ["AttackState_SkipSniperSpreadCheck"] = (
-            signature: "41 0F 28 C8 0F 57 C0 FF 15 ? ? ? ? F3 0F 10 0D ? ? ? ? 0F 2F C8 0F 86 ? ? ? ? 48 8B 9E ? ? 00 00",
+            signature: "84 C0 74 0A F3 0F 10 ? ? ? ? ? EB 08 F3 0F 10 ? ? ? ? ? ? 0F 2F ? 0F 87 ? ? ? ?",
             patch: "90 90 90 90 90 90",
-            expectedOriginal: "0F 86 ? ? ? ?",
-            patchOffset: 24  // RVA 0x320153: NOP jbe+47B
+            expectedOriginal: "0F 87 ? ? ? ?",
+            patchOffset: 26
         ),
 
 
@@ -135,11 +144,14 @@ internal static class WindowsPatchDefinitions
         patchOffset: 12    // BLOCK_TIMER_B NOP jbe → DODGE_B (RVA 0x2f2420)
         ),
 
+        // AttackState::Dodge: RandomInt(0, 3) -> RandomInt(0, 2), excluding
+        // action 3 (Jump) while retaining the other dodge actions.
+        // This does not disable navigation jumps or every behavior-tree jump, only combat jumps
         ["LowSKill_JumpChance0"] = (
-        signature: "FF 90 90 00 00 00 0F 2F 05 ? ? ? ? 76 11",
-        patch: "EB 40",
-        expectedOriginal: "76 11",
-        patchOffset: 13    // RVA 0x2f4587: jbe +11 → jmp +40 to non-jump 
+            signature: "0F 57 C9 48 8B CF E8 ? ? ? ? BA 03 00 00 00 84 C0 74 05 BA 02 00 00 00 33 C9 FF 15 ? ? ? ? 80 7D 43 00",
+            patch: "BA 02 00 00 00",
+            expectedOriginal: "BA 03 00 00 00",
+            patchOffset: 11
         ),
 
         // Source: AttackState::OnEnter
@@ -233,38 +245,17 @@ internal static class WindowsPatchDefinitions
             patchOffset: 2
         ),
 
-        // IsNoticable（raw 0x2DA930）
+        // Source: cs_bot_vision.cpp — CCSBot::IsNoticable(player, visParts)
+        // bool CCSBot::IsNoticable(player, visParts) const
+        // {
+        //     return true/false;
+        // }
+        // Patch the function entry so every visible enemy is noticed.
         ["IsNoticable_AlwaysTrue"] = (
-        signature: "40 53 48 83 EC 30 48 8B D9 BA FF FF FF FF 48 8D 0D ? ? ? ? E8 ? ? ? ? 48 85 C0 75",
-        patch: "B0 01 C3",
-        expectedOriginal: "40 53 48",
-        patchOffset: 0
-        ),
-
-        // InViewCone(bot, target):
-        //      angle = GetFOVToPosition(target) 
-        //      if angle > 60.0f:
-        //          return 0 
-        //      eax = 0
-        //      angle2 = GetFOVToPosition(target)
-        //      eax = (angle2 <= 25.0f) ? 1 : 0
-        //      eax += 1
-        //      return eax   
-        // NOP the outer-FOV jbe so the function falls
-        // through to `xor eax,eax; ret` (returns 0).
-        // the companion InViewCone_RemoveInnerFOV branch is then never reached (as in stable).
-        ["InViewCone_RemoveOuterFOV"] = (
-            signature: "FF 90 ? ? 00 00 0F 2F 05 ? ? ? ? 76 08 33 C0 48 83 C4 20 5B C3 48 8B 03 48 8B CB FF 90 ? ? 00 00",
-            patch: "90 90",
-            expectedOriginal: "76 08",
-            patchOffset: 13
-        ),
-
-        ["InViewCone_RemoveInnerFOV"] = (
-        signature: "0F 96 C0 FF C0 48 83 C4 20 5B C3",
-        patch: "B0 01 90",
-        expectedOriginal: "0F 96 C0",
-        patchOffset: 0
+            signature: "48 89 5C 24 ? 56 57 41 56 48 81 EC ? ? 00 00 0F 29 74 24 ? 4C 8B F1 0F 29 7C 24 ? 48 8B CA 44 0F 29 44 24 ? 41 0F B6 D8 44 0F 29 4C 24 ? 48 8B F2 E8",
+            patch: "B0 01 C3",
+            expectedOriginal: "48 89 5C",
+            patchOffset: 0
         ),
 
 
@@ -305,9 +296,9 @@ internal static class WindowsPatchDefinitions
         // With the patch active: [gameState+0x68] is set at plant time for all bots.
         //  directly to the planted site instead of random searching.
         ["TBot_BombsiteSearch_UseKnownPlantedSite"] = (
-            signature: "48 8B 8E ? ? 00 00 E8 ? ? ? ? ? 8B ? E8 ? ? ? ? 4C 8B 05 ? ? ? ? 85 C0",
-            patch: "E8 28 41 F9 FF",
-            expectedOriginal: "E8 38 3B F9 FF",
+            signature: "48 8B 8E ? ? 00 00 E8 ? ? ? ? 48 8B CB E8 ? ? ? ? 4C 8B 05 ? ? ? ? 85 C0",
+            patch: "E8 30 57 F9 FF",
+            expectedOriginal: "E8 40 51 F9 FF",
             patchOffset: 15
         ),
 

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
@@ -17,7 +16,6 @@ public sealed class BotRandomizerPlugin : BasePlugin
 {
     private readonly CosmeticStateStore _states = new();
     private readonly HashSet<int> _pendingRerolls = [];
-    private BotRandomizerOptions _options = new();
 
     private CosmeticCatalog? _catalog;
     private CosmeticRoller? _roller;
@@ -27,14 +25,13 @@ public sealed class BotRandomizerPlugin : BasePlugin
     private bool _giveNamedItemErrorLogged;
 
     public override string ModuleName => "BotRandomizer";
-    public override string ModuleVersion => "1.3.0";
-    public override string ModuleAuthor => "ed0ard, Misaka17032 & unicbm";
+    public override string ModuleVersion => "1.3.2";
+    public override string ModuleAuthor => "ed0ard, Misaka17032, unicbm & XBribo";
     public override string ModuleDescription =>
         "Stable per-bot knives, gloves, weapon skins, stickers, charms, agents and music kits";
 
     public override void Load(bool hotReload)
     {
-        LoadOptions();
         LoadCatalog();
         LoadAttributeWriter();
 
@@ -45,7 +42,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
         RegisterEventHandler<EventRoundMvp>(OnRoundMvp, HookMode.Pre);
         RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
         RegisterEventHandler<EventItemPickup>(OnItemPickup);
-        if (_options.Skins && _weaponItemViews?.NativeAvailable == true)
+        if (_weaponItemViews?.NativeAvailable == true)
         {
             VirtualFunctions.GiveNamedItemFunc.Hook(OnGiveNamedItemPre, HookMode.Pre);
             _giveNamedItemHooked = true;
@@ -100,10 +97,11 @@ public sealed class BotRandomizerPlugin : BasePlugin
         MemoryFunctionWithReturn<nint, string, float, int>? writer = null;
         try
         {
+            // SetOrAddAttributeValueByName
             writer = new MemoryFunctionWithReturn<nint, string, float, int>(
                 RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-                    ? "55 48 89 E5 41 57 41 56 49 89 FE 41 55 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85"
-                    : "40 53 55 41 56 48 81 EC ? ? ? ? 0F 29 74 24");
+                    ? "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85"
+                    : "48 89 4C 24 ? 53 41 55 41 56");
         }
         catch (Exception exception)
         {
@@ -118,6 +116,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
         {
             try
             {
+                // CEconItemViewConstructor
                 itemViewConstructor = new MemoryFunctionWithReturn<nint, nint>(
                     RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
                         ? "55 48 8D 05 ? ? ? ? 66 0F EF C0 48 89 E5 41 57 45 31 FF"
@@ -141,13 +140,10 @@ public sealed class BotRandomizerPlugin : BasePlugin
         // Keep constructed item-view storage alive across map transitions. Each view is
         // fully overwritten before reuse and is freed only at slot teardown or unload.
         _applicator?.Reset();
-        if (_options.Agents)
-        {
-            foreach (var model in RandomizerAssets.CounterTerroristModels)
-                Server.PrecacheModel(model);
-            foreach (var model in RandomizerAssets.TerroristModels)
-                Server.PrecacheModel(model);
-        }
+        foreach (var agent in RandomizerAssets.CounterTerroristAgents)
+            Server.PrecacheModel(agent.ModelPath);
+        foreach (var agent in RandomizerAssets.TerroristAgents)
+            Server.PrecacheModel(agent.ModelPath);
     }
 
     private void OnClientDisconnect(int playerSlot)
@@ -162,14 +158,96 @@ public sealed class BotRandomizerPlugin : BasePlugin
     {
         foreach (var player in Utilities.GetPlayers())
             ConsumePendingReroll(player);
+        // Deferred one frame so this round's intro entities already exist. Rerolls are consumed
+        // first, so the intro publishes the loadout the bot will actually spawn with.
+        Server.NextFrame(ApplyIntroAgents);
         return HookResult.Continue;
+    }
+
+    // Updates both teams only while the game is preparing the team intro
+    private void ApplyIntroAgents()
+    {
+        var gameRules = Utilities
+            .FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules")
+            .FirstOrDefault()
+            ?.GameRules;
+
+        if (gameRules is null || !gameRules.TeamIntroPeriod)
+            return;
+
+        ApplyIntroAgentsForTeam(
+            "team_intro_counterterrorist",
+            RandomizerAssets.CounterTerroristTeam,
+            gameRules.CTTeamIntroVariant);
+        ApplyIntroAgentsForTeam(
+            "team_intro_terrorist",
+            RandomizerAssets.TerroristTeam,
+            gameRules.TTeamIntroVariant);
+    }
+
+    // Matches bot controllers to active intro positions and publishes their agent items
+    private void ApplyIntroAgentsForTeam(string designerName, byte team, int introVariant)
+    {
+        var teamPlayers = Utilities.GetPlayers()
+            .Where(player => player.IsValid && player.TeamNum == team)
+            .OrderBy(player => player.Slot)
+            .ToList();
+        var bots = teamPlayers
+            .Where(player => player is { IsBot: true, IsHLTV: false })
+            .ToList();
+
+        if (bots.Count == 0)
+            return;
+
+        var previews = Utilities
+            .FindAllEntitiesByDesignerName<CCSGO_TeamPreviewCharacterPosition>(designerName)
+            .Where(preview => preview.IsValid && preview.Variant == introVariant)
+            .OrderBy(preview => preview.Ordinal)
+            .Take(teamPlayers.Count)
+            .ToList();
+        var unmatchedBots = new List<CCSPlayerController>(bots);
+        var unmatchedPreviews = new List<CCSGO_TeamPreviewCharacterPosition>(previews);
+
+        foreach (var bot in bots.Where(bot => bot.SteamID != 0))
+        {
+            var preview = unmatchedPreviews.FirstOrDefault(candidate => candidate.Xuid == bot.SteamID);
+            if (preview is null)
+                continue;
+
+            ApplyIntroAgent(preview, bot);
+            unmatchedBots.Remove(bot);
+            unmatchedPreviews.Remove(preview);
+        }
+
+        var botPreviews = unmatchedPreviews
+            .Where(preview => preview.Xuid == 0)
+            .OrderBy(preview => preview.Ordinal)
+            .ToList();
+        var pairCount = Math.Min(unmatchedBots.Count, botPreviews.Count);
+
+        for (var i = 0; i < pairCount; i++)
+            ApplyIntroAgent(botPreviews[i], unmatchedBots[i]);
+    }
+
+    private void ApplyIntroAgent(
+        CCSGO_TeamPreviewCharacterPosition preview,
+        CCSPlayerController bot)
+    {
+        var state = GetOrCreateState(bot);
+        if (state is null)
+            return;
+
+        // Publishes the very agent this bot's pawn is given at spawn, so the intro and the
+        // in-game model always match.
+        preview.AgentItem.ItemDefinitionIndex = state.Loadout.AgentDefIndex;
+        Utilities.SetStateChanged(
+            preview,
+            "CCSGO_TeamPreviewCharacterPosition",
+            "m_agentItem");
     }
 
     private HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
     {
-        if (!_options.HasVisibleFeatures)
-            return HookResult.Continue;
-
         ConsumePendingReroll(@event.Userid);
         var state = GetOrCreateState(@event.Userid);
         if (state is null)
@@ -194,8 +272,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnGiveNamedItemPre(DynamicHook hook)
     {
-        if (!_options.Skins
-            || _catalog is null
+        if (_catalog is null
             || _roller is null
             || _weaponItemViews is null)
         {
@@ -247,7 +324,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
     {
-        if (!_options.Skins || _applicator is null)
+        if (_applicator is null)
             return HookResult.Continue;
         if (string.IsNullOrEmpty(@event.Item)
             || (!@event.Item.Contains("knife", StringComparison.Ordinal)
@@ -278,7 +355,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
             return HookResult.Continue;
         }
 
-        if (!_options.HasVisibleFeatures || _roller is null || !IsPlayableTeam(@event.Team))
+        if (_roller is null || !IsPlayableTeam(@event.Team))
         {
             _states.BumpGeneration(player.Slot);
             return HookResult.Continue;
@@ -302,9 +379,6 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private HookResult OnRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
-        if (!_options.Music)
-            return HookResult.Continue;
-
         var state = GetOrCreateState(@event.Userid);
         var player = @event.Userid;
         if (state is null || player is null)
@@ -346,12 +420,12 @@ public sealed class BotRandomizerPlugin : BasePlugin
         if (_applicator is null)
             return;
 
-        if (_options.Agents && (scope & CosmeticScope.Agent) != 0)
+        if ((scope & CosmeticScope.Agent) != 0)
         {
             _applicator.ApplyAgent(pawn, state.Loadout.AgentModel);
         }
 
-        if (_options.Music && (scope & CosmeticScope.MusicKit) != 0)
+        if ((scope & CosmeticScope.MusicKit) != 0)
         {
             ApplyMusicKit(player, state.Loadout.MusicKit, 0);
         }
@@ -363,8 +437,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
         SlotCosmeticState state,
         CosmeticScope scope = CosmeticScope.Knife | CosmeticScope.Gloves)
     {
-        if (!_options.Skins
-            || _applicator is null
+        if (_applicator is null
             || player is not { IsValid: true, IsBot: true }
             || !pawn.IsValid)
         {
@@ -423,8 +496,7 @@ public sealed class BotRandomizerPlugin : BasePlugin
     {
         void Callback()
         {
-            if (_options.Skins
-                && _applicator is not null
+            if (_applicator is not null
                 && TryResolveCurrentBot(slot, userId, generation, out _, out var pawn, out _))
             {
                 _applicator.SyncPickedUpKnife(pawn);
@@ -468,10 +540,6 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private void RestoreBot(int slot, CosmeticScope scope)
     {
-        scope &= EnabledScope;
-        if (scope == CosmeticScope.None)
-            return;
-
         var player = Utilities.GetPlayerFromSlot(slot);
         if (_roller is null
             || player is not { IsValid: true, IsBot: true, IsHLTV: false }
@@ -575,36 +643,6 @@ public sealed class BotRandomizerPlugin : BasePlugin
 
     private static bool IsPlayableTeam(int team)
         => team is RandomizerAssets.TerroristTeam or RandomizerAssets.CounterTerroristTeam;
-
-    private CosmeticScope EnabledScope
-        => (_options.Skins ? CosmeticScope.Weapons | CosmeticScope.Knife | CosmeticScope.Gloves : CosmeticScope.None)
-            | (_options.Agents ? CosmeticScope.Agent : CosmeticScope.None)
-            | (_options.Music ? CosmeticScope.MusicKit : CosmeticScope.None);
-
-    private void LoadOptions()
-    {
-        var path = Path.Combine(ModuleDirectory, "bot_randomizer_options.json");
-        try
-        {
-            if (!File.Exists(path))
-            {
-                _options = new BotRandomizerOptions();
-                return;
-            }
-
-            _options = JsonSerializer.Deserialize<BotRandomizerOptions>(
-                File.ReadAllText(path),
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?? new BotRandomizerOptions();
-        }
-        catch (Exception exception)
-        {
-            _options = new BotRandomizerOptions();
-            Logger.LogError(
-                exception,
-                "[BotRandomizer] bot_randomizer_options.json is invalid; all legacy features remain enabled");
-        }
-    }
 
     private static CCSPlayerController? GetPlayerFromItemServices(CCSPlayer_ItemServices itemServices)
     {

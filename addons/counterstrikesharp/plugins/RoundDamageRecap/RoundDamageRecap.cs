@@ -5,8 +5,6 @@ using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
-using MatchCore;
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 
 namespace RoundDamageRecap;
@@ -30,13 +28,6 @@ public sealed class RoundDamageRecapPlugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        if (PlusManagedPaths.TryResolveCsgoRoot(Server.GameDirectory, out var csgoRoot) &&
-            File.Exists(PlusManagedPaths.ActiveMatchPath(csgoRoot)))
-        {
-            Logger.LogInformation("[RoundDamageRecap] Disabled for PLUS match; PlusMatchCoordinator owns match statistics.");
-            return;
-        }
-
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundEnd>(OnRoundEnd);

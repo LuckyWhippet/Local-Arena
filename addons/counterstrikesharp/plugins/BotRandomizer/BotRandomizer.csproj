@@ -6,16 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>BotRandomizer</AssemblyName>
     <RootNamespace>BotRandomizer</RootNamespace>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tools/**;dist/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.371" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.376" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="gamedata\*.*" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="charm_placements.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="cosmetic_catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="cosmetic_catalog.json;charm_placements.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

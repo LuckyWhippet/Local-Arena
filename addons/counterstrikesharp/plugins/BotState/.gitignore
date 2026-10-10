@@ -1,0 +1,19 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+publish/
+
+# IDE
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Local dependency binaries
+libs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

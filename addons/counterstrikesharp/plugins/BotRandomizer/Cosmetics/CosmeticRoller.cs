@@ -31,15 +31,19 @@ internal sealed class CosmeticRoller
 
     internal BotCosmeticLoadout RollLoadout(byte team, int? preservedMusicKit = null)
     {
-        var modelPool = team == RandomizerAssets.CounterTerroristTeam
-            ? RandomizerAssets.CounterTerroristModels
-            : RandomizerAssets.TerroristModels;
+        var agentPool = team == RandomizerAssets.CounterTerroristTeam
+            ? RandomizerAssets.CounterTerroristAgents
+            : RandomizerAssets.TerroristAgents;
+        // One roll, two consumers: the pawn takes ModelPath at spawn and the team intro entity
+        // takes DefIndex, so the intro can never show a different agent than the bot itself.
+        var agent = Pick(agentPool);
         var (knife, glove) = RollOutfit();
 
         return new BotCosmeticLoadout
         {
             Team = team,
-            AgentModel = Pick(modelPool),
+            AgentModel = agent.ModelPath,
+            AgentDefIndex = agent.DefIndex,
             MusicKit = preservedMusicKit ?? Pick(_catalog.MusicKits),
             Knife = knife,
             Glove = glove
