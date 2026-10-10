@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$PackageRoot,
-    [string]$ExpectedPackageVersion = "1.4.3.3"
+    [string]$ExpectedPackageVersion = "1.5.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -178,7 +178,7 @@ if ($nadeSystem -notmatch 'botPawn = bot\.PlayerPawn\?\.Value;' -or
 if ($nadeSystem -notmatch '_botNadesMode == "less"' -or
     $nadeSystem -notmatch 'LessModeAllows\(' -or
     $nadeSystem -notmatch 'IncrementBotCount\(') {
-    Add-Failure "NadeSystem no longer contains the upstream 1.4.3 Less mode limits."
+    Add-Failure "NadeSystem no longer contains the Less mode limits."
 }
 $nadeDataRoot = Join-Path $repo "addons/counterstrikesharp/plugins/NadeSystem/grenades"
 $nadeDataFiles = @(Get-ChildItem -LiteralPath $nadeDataRoot -Filter "*.json" -File -ErrorAction SilentlyContinue)

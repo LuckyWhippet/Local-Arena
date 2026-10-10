@@ -7,7 +7,7 @@ param(
     [string]$LlvmBin,
     [string]$XwinCache,
     [string]$OutputDirectory,
-    [string]$ReleaseVersion = "1.4.3.3",
+    [string]$ReleaseVersion = "1.5.0",
     [string]$MinimumPanelVersion = "1.4.2.4",
     [switch]$SkipBuild,
     [switch]$SkipNpmInstall
@@ -319,11 +319,11 @@ if ($isPreview) {
     $packageReadme = Join-Path $releaseRoot "README.md"
     $packageReadmeZh = Join-Path $releaseRoot "README.zh-CN.md"
     (Get-Content -LiteralPath $packageReadme -Raw).Replace(
-        "The current ``main`` branch targets **1.4.3.3**",
+        "The current ``main`` branch targets **1.5.0**",
         "This local test package is **$displayVersion** (preview; may contain bugs; please report problems)"
     ) | Set-Content -LiteralPath $packageReadme -Encoding utf8
     (Get-Content -LiteralPath $packageReadmeZh -Raw).Replace(
-        "当前 ``main`` 分支源码版本为 **1.4.3.3**",
+        "当前 ``main`` 分支源码版本为 **1.5.0**",
         "当前本地测试包版本为 **$displayVersion**（预览版本，可能包含 Bug，请反馈）"
     ) | Set-Content -LiteralPath $packageReadmeZh -Encoding utf8
     @"

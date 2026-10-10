@@ -1,7 +1,7 @@
-> [!CAUTION]
-> **注意**
+> [!NOTE]
+> **社区延续 Fork**
 > 
-> 本项目因个人工作原因，进行无限期的停止更新，不再进行任何维护和解答，但您依然可以根据协议进行下载、修改以及转发，本项目不再提供任何技术上面的支持
+> 原仓库（[numakkiyu/Local-Arena](https://github.com/numakkiyu/Local-Arena)）已归档停止更新。本仓库是独立的社区延续分支，遵循相同的 [AGPL-3.0](LICENSE) 许可证维护，并已把上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) 的更新同步到提交 `72adfc2`（2026-10-08）。Local Arena 的全部功能均保留，详见下方[本 Fork 同步内容](#本-fork-新增内容)
 
 <div align="center">
 
@@ -12,14 +12,14 @@
 <br/>
 
 这个中文也是一样
-<a href="https://github.com/numakkiyu/Local-Arena/releases"><img alt="发行版本" src="https://img.shields.io/github/v/release/numakkiyu/Local-Arena?display_name=tag&sort=semver"></a>
+<a href="https://github.com/LuckyWhippet/Local-Arena/releases"><img alt="发行版本" src="https://img.shields.io/github/v/release/LuckyWhippet/Local-Arena?display_name=tag&sort=semver"></a>
 <img alt="支持平台" src="https://img.shields.io/badge/platform-Windows-0078D4">
-<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/github/license/numakkiyu/Local-Arena"></a>
+<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/github/license/LuckyWhippet/Local-Arena"></a>
 
 <br/>
 <br/>
 
-[下载已发布版本](https://github.com/numakkiyu/Local-Arena/releases) · [提交问题反馈](https://github.com/numakkiyu/Local-Arena/issues) · [品牌与独立性说明](#品牌更名与项目关系说明) · [代码来源与署名](#上游代码来源与署名)
+[下载已发布版本](https://github.com/LuckyWhippet/Local-Arena/releases) · [提交问题反馈](https://github.com/LuckyWhippet/Local-Arena/issues) · [品牌与独立性说明](#品牌更名与项目关系说明) · [代码来源与署名](#上游代码来源与署名)
 
 </div>
 
@@ -28,7 +28,7 @@
 >
 > Local Arena 与 [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) 及其维护者互不隶属，不代表上游官方，也不由上游维护者提供支持
 >
-> Local Arena 的构建、面板、安装、匹配、饰品、诊断、闪退或更新问题，请统一在[本仓库 Issues](https://github.com/numakkiyu/Local-Arena/issues) 提交，不要向上游项目反馈 Local Arena 的问题
+> Local Arena 的构建、面板、安装、匹配、饰品、诊断、闪退或更新问题，请统一在[本仓库 Issues](https://github.com/LuckyWhippet/Local-Arena/issues) 提交，不要向上游项目反馈 Local Arena 的问题
 >
 > 部分增强人机组件仍基于上游 AGPL-3.0 代码，其来源和作者署名会继续保留；Local Arena 的开发、发布、问题追踪和用户支持均由本仓库独立负责
 >
@@ -36,9 +36,9 @@
 
 <div align="center">
 
-当前 `main` 分支源码版本为 **1.4.3.3**
+当前 `main` 分支源码版本为 **1.5.0**
 
-当前版本更新代号：**更丰富的饰品**
+已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.376**
 
 **教程导航：** [首次安装](#四步完成首次安装) · [已有安装](#更新已有安装) · [启动模式](#选择正确的启动模式) · [玩家饰品](#玩家饰品预设) · [更新恢复](#安装更新与恢复) · [常见问题](#常见问题)
 
@@ -54,7 +54,7 @@
 
 应上游项目作者提出的明确品牌分离要求，同时为进一步厘清项目的品牌归属与维护边界，本项目将自下一版本起由 **CS2BotImproverPlus** 正式更名为 **Local Arena**
 
-**Local Arena** 是独立开发、独立发布并独立维护的项目，与 **CS2-Bot-Improver** 及其作者不存在隶属、授权、联合维护、官方合作或技术支持关系。本项目仅依据 [AGPL-3.0](https://github.com/numakkiyu/Local-Arena/blob/main/LICENSE) 开源许可证引用、修改和再分发部分开源代码，并将持续完整保留相关代码来源、作者署名及许可证声明
+**Local Arena** 是独立开发、独立发布并独立维护的项目，与 **CS2-Bot-Improver** 及其作者不存在隶属、授权、联合维护、官方合作或技术支持关系。本项目仅依据 [AGPL-3.0](https://github.com/LuckyWhippet/Local-Arena/blob/main/LICENSE) 开源许可证引用、修改和再分发部分开源代码，并将持续完整保留相关代码来源、作者署名及许可证声明
 
 自下一版本起，Local Arena 将启用全新的 UI 设计语言与品牌 Logo。为保障现有用户的数据、更新、安装和历史版本兼容性，部分旧版本、历史界面、文件名称及兼容性标识在过渡期间仍可能显示原品牌名称
 
@@ -69,6 +69,18 @@
 - 面板与插件负载分别进行在线更新
 - 一键导出诊断 ZIP，并自动打开日志包所在文件夹
 - 面板内置真实截图教程和常见问题处理流程
+
+## 本 Fork 新增内容
+
+本延续分支保留 Local Arena 的全部功能，并重新同步了上游增强人机代码：
+
+- **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2`（2026-10-08）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
+- 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/bt_default.kv3` 及 High/Low/Medium 难度 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
+- **CounterStrikeSharp v1.0.376** 运行时与 API（dependencies.json 已钉住真实 1.0.376 发布资产与校验哈希）
+- BotBuy、BotAimImprover 保留 Local Arena 的托管/守卫架构（schema 目标点写入、代际守卫购买定时器、PLUS 对局购买门禁、狙击步枪购买规范化）
+- NadeSystem 投掷物目录仍位于 `plugins/NadeSystem/grenades`（插件运行时从 `ModuleDirectory` 读取）
+
+Local Arena 的改动以显式补丁形式维护：`verify-workspace.ps1` 将 vendored 插件目录与 `vendor-sync-2026-10-08` 快照对比，沿用原有机制防止意外漂移。
 
 ## 开始之前
 

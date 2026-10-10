@@ -22,7 +22,7 @@ export const THIRD_PARTY_GROUPS: ThirdPartyGroup[] = [
     projects: [
       {
         name: "CS2-Bot-Improver",
-        version: "v1.4.3 source base",
+        version: "v1.4.3 source base; synced to 72adfc2 (2026-10-08)",
         license: "AGPL-3.0",
         url: "https://github.com/ed0ard/CS2-Bot-Improver",
         description: "Original enhanced-bot codebase used as the upstream foundation.",
@@ -38,7 +38,7 @@ export const THIRD_PARTY_GROUPS: ThirdPartyGroup[] = [
       },
       {
         name: "CounterStrikeSharp",
-        version: "v1.0.371",
+        version: "v1.0.376",
         license: "GPL-3.0 + MIT plugin exception",
         url: "https://github.com/roflmuffin/CounterStrikeSharp",
         description: "Managed CS2 plugin runtime. Published plugins may use the repository's MIT exception.",

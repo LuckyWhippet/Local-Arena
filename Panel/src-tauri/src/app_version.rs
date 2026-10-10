@@ -24,6 +24,6 @@ mod tests {
 
     #[test]
     fn release_semver_maps_to_the_four_part_display_version() {
-        assert_eq!(display(), "1.4.3.3");
+        assert_eq!(display(), "1.5.0.0");
     }
 }

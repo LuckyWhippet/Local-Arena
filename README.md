@@ -1,6 +1,6 @@
-> [!CAUTION]
-> **Project Suspension Notice**
-> Due to work and personal reasons, this project will be indefinitely suspended from further updates. However, you may still fork and modify the repository in accordance with the license. Please note that this project will no longer provide any support or updates.
+> [!NOTE]
+> **Community Continuation Fork**
+> The original repository ([numakkiyu/Local-Arena](https://github.com/numakkiyu/Local-Arena)) is archived and no longer receives updates. This repository is an independent community continuation fork, maintained under the same [AGPL-3.0](LICENSE) license, with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) changes synced through commit `72adfc2` (2026-10-08). All Local Arena features are preserved; see [What This Fork Adds](#what-this-fork-adds) below.
 
 <div align="center">
 
@@ -10,14 +10,14 @@
 
 <br/>
 
-<a href="https://github.com/numakkiyu/Local-Arena/releases"><img alt="Release" src="https://img.shields.io/github/v/release/numakkiyu/Local-Arena?display_name=tag&sort=semver"></a>
+<a href="https://github.com/LuckyWhippet/Local-Arena/releases"><img alt="Release" src="https://img.shields.io/github/v/release/LuckyWhippet/Local-Arena?display_name=tag&sort=semver"></a>
 <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4">
-<a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/numakkiyu/Local-Arena"></a>
+<a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/LuckyWhippet/Local-Arena"></a>
 
 <br/>
 <br/>
 
-[Download a published build](https://github.com/numakkiyu/Local-Arena/releases) · [Report an issue](https://github.com/numakkiyu/Local-Arena/issues) · [Brand and independence](#brand-renaming-and-project-independence) · [Source attribution](#upstream-source-and-attribution)
+[Download a published build](https://github.com/LuckyWhippet/Local-Arena/releases) · [Report an issue](https://github.com/LuckyWhippet/Local-Arena/issues) · [Brand and independence](#brand-renaming-and-project-independence) · [Source attribution](#upstream-source-and-attribution)
 
 </div>
 
@@ -27,7 +27,7 @@
 >
 > Local Arena is not affiliated with, endorsed by, or maintained by [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) or its maintainers. The upstream project does not provide support for Local Arena
 >
-> For any Local Arena build, Panel, installation, matching, cosmetics, diagnostics, crash, or update problem, [open an issue in this repository](https://github.com/numakkiyu/Local-Arena/issues). Do not submit Local Arena reports to the upstream project
+> For any Local Arena build, Panel, installation, matching, cosmetics, diagnostics, crash, or update problem, [open an issue in this repository](https://github.com/LuckyWhippet/Local-Arena/issues). Do not submit Local Arena reports to the upstream project
 >
 > Selected enhanced-bot components remain derived from upstream AGPL-3.0 code. Their origin and authorship remain credited below, while development, releases, issue tracking, and user support are managed independently by Local Arena
 >
@@ -35,9 +35,9 @@
 
 <div align="center">
 
-The current `main` branch targets **1.4.3.3**
+The current `main` branch targets **1.5.0**
 
-Update codename: **Richer Cosmetics**
+Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.376**
 
 **Guide:** [First installation](#four-step-first-installation) · [Existing installation](#updating-an-existing-installation) · [Launch modes](#choose-the-correct-mode) · [Cosmetics](#player-cosmetic-presets) · [Recovery](#installation-updates-and-recovery) · [Troubleshooting](#troubleshooting)
 
@@ -53,7 +53,7 @@ Update codename: **Richer Cosmetics**
 
 Following an explicit request from the upstream project author for clear brand separation, and to further clarify project ownership and maintenance responsibilities, this project will be formally renamed from **CS2BotImproverPlus** to **Local Arena** beginning with the next version
 
-**Local Arena** is independently developed, released, and maintained. It is not affiliated with, authorized by, jointly maintained with, officially partnered with, or supported by **CS2-Bot-Improver** or its author. The project only uses, modifies, and redistributes selected open-source code under the [AGPL-3.0](https://github.com/numakkiyu/Local-Arena/blob/main/LICENSE) license, while continuing to preserve all required source attribution, authorship notices, and license declarations
+**Local Arena** is independently developed, released, and maintained. It is not affiliated with, authorized by, jointly maintained with, officially partnered with, or supported by **CS2-Bot-Improver** or its author. The project only uses, modifies, and redistributes selected open-source code under the [AGPL-3.0](https://github.com/LuckyWhippet/Local-Arena/blob/main/LICENSE) license, while continuing to preserve all required source attribution, authorship notices, and license declarations
 
 Beginning with the next version, Local Arena will adopt a new UI design language and brand logo. To preserve user data, update, installation, and legacy-version compatibility, some older releases, historical interfaces, filenames, and compatibility identifiers may continue to display the former brand name during the transition
 
@@ -68,6 +68,18 @@ Beginning with the next version, Local Arena will adopt a new UI design language
 - Separate online updates for the Panel and plugin payload
 - One-click diagnostic ZIP export that opens the output folder automatically
 - A built-in guide with real screenshots and troubleshooting steps
+
+## What This Fork Adds
+
+This continuation fork keeps every Local Arena feature and re-synchronizes it with the upstream enhanced-bot codebase:
+
+- **Upstream code re-synced** to [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2` (2026-10-08): BotAI, BotAimImprover, BotBuy, BotRandomizer, BotState, NadeSystem, RoundDamageRecap and the BotHider integration are vendored at the exact commits upstream pins, with Local Arena's own modifications re-applied on top
+- **Rush mode support** and **behavior trees** from upstream (`overrides/scripts/bt_default.kv3` + per-difficulty `bt_config.kv3`), plus the updated mode configs (Casual, Competitive, Wingman, DM, FFA, Armsrace, Workshop, 2v2)
+- **CounterStrikeSharp v1.0.376** runtime and API everywhere (dependencies.json pins the real 1.0.376 release assets with verified hashes)
+- BotBuy and BotAimImprover keep Local Arena's managed/guarded architecture (schema-based target spot writes, generation-guarded buy timers, purchasing gates for PLUS matches, scoped-rifle purchase normalization)
+- NadeSystem grenade catalog stays at `plugins/NadeSystem/grenades` (plugin reads it from `ModuleDirectory` at runtime)
+
+Local Arena modifications are tracked as explicit patches: `verify-workspace.ps1` compares the vendored plugin directories against the `vendor-sync-2026-10-08` snapshot so accidental drift is caught the same way it always was.
 
 ## Before You Start
 
