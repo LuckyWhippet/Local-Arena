@@ -1005,6 +1005,9 @@ End
 ProSlow+RiflePro+FreemanPersonality "AyeZ"
 	VoicePitch = 75
 End
+ProSteady+RiflePro+FreemanPersonality "Techno4K"
+	VoicePitch = 74
+End
 ProSteady+RiflePro+FreemanPersonality "Techno"
 	VoicePitch = 74
 End
@@ -4125,10 +4128,10 @@ ProSteady+SniperPro+SniperPersonality "MartinezSa"
 End
 ProTop+RiflePro+RiflePersonality "forsaken"
 	VoicePitch = 115
-    LookAngleMaxAccelNormal = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleMaxAccelNormal =  7000.0
     LookAngleStiffnessNormal = 3000.0
     LookAngleDampingNormal = 45.0
-    LookAngleMaxAccelAttacking = 99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.9.9.9.9
+    LookAngleMaxAccelAttacking =  7000.0
     LookAngleStiffnessAttacking = 3000.0
     LookAngleDampingAttacking = 39.95
 End

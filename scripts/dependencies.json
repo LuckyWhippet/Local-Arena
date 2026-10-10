@@ -3,7 +3,7 @@
     "repository": "https://github.com/ed0ard/CS2-Bot-Improver",
     "baseCommit": "72adfc283faad3b8fbe974533d55c49d48691333",
     "sourceCommit": "72adfc283faad3b8fbe974533d55c49d48691333",
-    "vendorSnapshot": "vendor-sync-2026-10-08",
+    "vendoredSnapshot": "vendor-sync-2026-10-08",
     "release": "v1.4.3",
     "windowsAsset": {
       "name": "CS2BotImprover.zip",

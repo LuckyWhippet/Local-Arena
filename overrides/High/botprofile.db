@@ -1004,6 +1004,9 @@ End
 ProSlow+RiflePro+FreemanPersonality "AyeZ"
 	VoicePitch = 75
 End
+ProSteady+RiflePro+FreemanPersonality "Techno4K"
+	VoicePitch = 74
+End
 ProSteady+RiflePro+FreemanPersonality "Techno"
 	VoicePitch = 74
 End

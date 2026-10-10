@@ -99,6 +99,7 @@ else {
         }
     )
     $allowedUpstreamChanges = @(
+        "addons/counterstrikesharp/plugins/BotAI/Common.csproj",
         "addons/counterstrikesharp/plugins/BotAimImprover/BotAimImprover.cs",
         "addons/counterstrikesharp/plugins/BotAimImprover/BotAimImprover.csproj",
         "addons/counterstrikesharp/plugins/BotBuy/BotBuy.cs",
@@ -106,6 +107,7 @@ else {
         "addons/counterstrikesharp/plugins/BotRandomizer/BotRandomizer.cs",
         "addons/counterstrikesharp/plugins/BotRandomizer/Cosmetics/CosmeticModels.cs",
         "addons/counterstrikesharp/plugins/BotRandomizer/bot_randomizer_options.json",
+        "addons/counterstrikesharp/plugins/BotState/BotState.csproj",
         "addons/counterstrikesharp/plugins/BotControllerImpl/BotControllerImpl.csproj",
         "addons/counterstrikesharp/plugins/BotControllerImpl/BotController.NativeApi.cs",
         "addons/counterstrikesharp/plugins/BotControllerImpl/BotControllerApiImpl.cs",
