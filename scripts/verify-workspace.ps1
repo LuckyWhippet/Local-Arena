@@ -46,7 +46,11 @@ function Get-JsonCount([string]$RelativePath) {
     }
 }
 
-$base = if ($manifest.upstream.sourceCommit) { $manifest.upstream.sourceCommit } else { $manifest.upstream.baseCommit }
+$base = if ($manifest.upstream.vendoredSnapshot) {
+    $manifest.upstream.vendoredSnapshot
+}
+elseif ($manifest.upstream.sourceCommit) { $manifest.upstream.sourceCommit }
+else { $manifest.upstream.baseCommit }
 
 $localBuildConfig = Join-Path $repo ".local-build.ps1"
 if ($env:GITHUB_ACTIONS -ne "true" -and -not (Test-Path -LiteralPath $localBuildConfig -PathType Leaf)) {
@@ -163,10 +167,12 @@ if (([regex]::Matches($botBuy, 'AddTimer\(').Count -ne 1) -or
     Add-Failure "BotBuy no longer guards delayed callbacks against invalid CounterStrikeSharp controllers."
 }
 
-$nadeSystem = Get-Content -LiteralPath (Join-Path $repo "addons/counterstrikesharp/plugins/NadeSystem/NadeSystem.cs") -Raw
-if ($nadeSystem -notmatch 'if \(!bot\.IsValid\) return;' -or
-    $nadeSystem -notmatch 'botPawn = bot\.PlayerPawn\?\.Value;' -or
-    $nadeSystem -notmatch 'catch \(Exception\)\s*\{\s*return;\s*\}') {
+# NadeSystem was refactored upstream into NadeSystemPlugin.*.cs files; scan the
+# whole plugin directory for the guard and Less-mode requirements.
+$nadeSystem = ((Get-ChildItem -LiteralPath (Join-Path $repo "addons/counterstrikesharp/plugins/NadeSystem") -Filter *.cs | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n")
+if ($nadeSystem -notmatch 'botPawn = bot\.PlayerPawn\?\.Value;' -or
+    $nadeSystem -notmatch 'if \(botPawn == null \|\| !botPawn\.IsValid\)' -or
+    $nadeSystem -notmatch 'catch \(Exception') {
     Add-Failure "NadeSystem no longer guards delayed callbacks against disconnected bot pawns."
 }
 if ($nadeSystem -notmatch '_botNadesMode == "less"' -or

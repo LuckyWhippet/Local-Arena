@@ -1,12 +1,11 @@
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Core.Capabilities;
+using RayTraceAPI;
 using Microsoft.Extensions.Logging;
+using MatchCore;
 
 
 namespace BotAimImprover;
@@ -15,7 +14,7 @@ namespace BotAimImprover;
 public class BotAimImprover : BasePlugin
 {
     public override string ModuleName => "BotAimImprover";
-    public override string ModuleVersion => "2.1.5";
+    public override string ModuleVersion => "2.2.1";
     public override string ModuleAuthor => "ed0ard & htfy96 & XBribo";
     public override string ModuleDescription => "Restores intelligent aim part selection for CS2 bots.";
 
@@ -81,78 +80,42 @@ public class BotAimImprover : BasePlugin
         16               // FEET
     };
 
-    private static readonly int[] _priorityTrunk =
+    private static readonly int[] _priorityBody =
     {
-        4, 5, 3,         // GUT, PELVIS, CHEST,
+        4, 5, 3,         // GUT, PELVIS, CHEST,  
         10, 11, 6, 7,    // L_GUT, R_GUT, L_CHEST, R_CHEST
         8, 9,            // L_SHOULDER, R_SHOULDER
         2, 1, 0,         // JAW, NECK, HEAD
         12, 13, 14, 15,  // L_THIGH, R_THIGH, L_SHIN, R_SHIN
         16               // FEET
     };
-
-    private static readonly int[] _priorityBody =
-    {
-        4, 5, 10, 11,    // GUT, PELVIS, L_GUT, R_GUT
-        3, 6, 7,         // CHEST, L_CHEST, R_CHEST
-        8, 9,            // L_SHOULDER, R_SHOULDER
-        2, 1, 0,         // JAW, NECK, HEAD        
-        12, 13, 14, 15,  // L_THIGH, R_THIGH, L_SHIN, R_SHIN
-        16               // FEET
-    };
-    // ============================================================
-    // PickNewAimSpot signatures
-    // CCSPlayerPawn.m_pBot: Windows 0x1510 , Linux 0x17D8
-    // ============================================================
-    private readonly struct Offsets
-    {
-        public readonly int TargetSpot;   // Vector(3) m_targetSpot
-        public readonly int Enemy;        // CHandle m_enemy
-        public readonly int IsVisible;    // bool m_isEnemyVisible
-        public readonly int PBot;         // CCSPlayerPawn->m_pBot
-        public readonly string Sig;
-        public Offsets(int ts, int en, int vis, int pbot, string sig)
-        {
-            TargetSpot = ts;
-            Enemy = en;
-            IsVisible = vis;
-            PBot = pbot;
-            Sig = sig;
-        }
-    }
-
-    private static readonly Offsets LinuxOffsets = new(
-        ts: 0x596C, en: 0x59D8, vis: 0x59DC, pbot: 0x17D8,
-        sig: "55 48 89 E5 41 55 41 54 53 48 89 FB 48 83 EC 58 8B 8F ? ? 00 00 83 F9 FF");
-
-    private static readonly Offsets WindowsOffsets = new(
-        ts: 0x5994,
-        en: 0x5A00,
-        vis: 0x5A04,
-        pbot: 0x1510,
-        sig: "48 8B C4 55 57 48 8D 68 ? 48 81 EC ? ? ? ? 48 8B F9 0F 29 70 ? 8B 89 ? ? ? ? 83 F9 FF"
-    );
-
-    private Offsets _off;
-
-    private MemoryFunctionVoid<IntPtr>? _pickNewAimSpot;
-    // Cache: CCSBot* -> bot's UserId .
-    // Cleared on round_start and per-bot on disconnect.
-    private readonly ConcurrentDictionary<IntPtr, int> _botToControllerUserId = new();
+    private static readonly PluginCapability<CRayTraceInterface> _rayTraceCapability =
+        new("raytrace:craytraceinterface");
+    private const float AimUpdateInterval = 0.05f;
 
     // Aim mode controlled by the `bot_aim` console command:
     //   Mixed = priority logic; snipers + spread weapons aim body-first, others head-first
     //   Head  = always head-first
     //   Body  = always body-first
-    private enum AimMode { MIXED, HEAD, BODY }
-    private AimMode _aimMode = AimMode.MIXED;
+    private readonly record struct CachedAimTarget(
+        IntPtr BotHandle,
+        IntPtr EnemyHandle,
+        int AimPointIndex);
 
-    // Weapons that aim body-first when in Mixed mode (snipers + high-spread / shotguns).
-    private static readonly HashSet<string> _bodyFirstWeapons = new()
-    {
-        "weapon_awp", "weapon_ssg08", "weapon_p90", "weapon_bizon",
-        "weapon_nova", "weapon_xm1014", "weapon_sawedoff", "weapon_mag7", "weapon_revolver"
-    };
+    private BotAimMode _aimMode = BotAimMode.Mixed;
+    private bool _managedAimActive;
+    private float _nextAimUpdate;
+    private float _lastErrorLog = float.NegativeInfinity;
+    private long _overrideCount;
+    private long _headPointCount;
+    private long _bodyPointCount;
+    private long _errorCount;
+    private long _loggedOverrideCount;
+    private long _loggedHeadPointCount;
+    private long _loggedBodyPointCount;
+    private long _loggedErrorCount;
+    private readonly Dictionary<int, CachedAimTarget> _cachedTargets = new();
+    private readonly Dictionary<int, int> _consecutiveErrorsByController = new();
 
     // One-shot flag so we log a single confirmation that overrides are actually firing.
     private bool _firstOverrideLogged = false;
@@ -163,219 +126,238 @@ public class BotAimImprover : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        bool win = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        _off = win ? WindowsOffsets : LinuxOffsets;
-
-        try
-        {
-            _pickNewAimSpot = new MemoryFunctionVoid<IntPtr>(_off.Sig);
-
-            long pnaRuntime = _pickNewAimSpot.Handle.ToInt64();
-            if (pnaRuntime == 0)
-                throw new InvalidOperationException("PickNewAimSpot signature resolved to zero address.");
-
-            _pickNewAimSpot.Hook(OnPickNewAimSpotPost, HookMode.Post);
-
-            Logger.LogInformation("[BotAimImprover] Loaded ({Plat}). PickNewAimSpot=0x{Pna:X16}",
-                win ? "Windows" : "Linux", pnaRuntime);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "[BotAimImprover] Fatal error during Load() (signature broken?). Plugin inactive.");
-            return;
-        }
-
+        AddCommand("bot_aim", "Set bot aim mode: head, body, mixed", OnAimCommand);
+        RegisterListener<Listeners.OnTick>(OnTick);
         RegisterEventHandler<EventRoundStart>((_, _) =>
         {
-            _botToControllerUserId.Clear();
+            LogRoundCounters();
+            _nextAimUpdate = 0;
+            _cachedTargets.Clear();
+            _consecutiveErrorsByController.Clear();
             return HookResult.Continue;
         });
-
-        RegisterEventHandler<EventPlayerDisconnect>((ev, _) =>
-        {
-            try
-            {
-                var disconnecter = ev.Userid;
-                if (disconnecter != null && disconnecter.UserId.HasValue)
-                {
-                    int leavingUserId = disconnecter.UserId.Value;
-                    foreach (var kv in _botToControllerUserId)
-                        if (kv.Value == leavingUserId)
-                            _botToControllerUserId.TryRemove(kv.Key, out int _);
-                }
-            }
-            catch { /* non-fatal */ }
-            return HookResult.Continue;
-        });
-
-        AddCommand("bot_aim", "Set bot aim mode: head, body, mixed", (caller, info) =>
-        {
-            string arg = info.ArgCount > 1 ? info.GetArg(1).Trim().ToLowerInvariant() : "";
-            string reply;
-            switch (arg)
-            {
-                case "head":
-                    _aimMode = AimMode.HEAD;
-                    reply = "[BotAimImprover] aim mode -> HEAD (always head-first)";
-                    break;
-                case "body":
-                    _aimMode = AimMode.BODY;
-                    reply = "[BotAimImprover] aim mode -> BODY (always body-first)";
-                    break;
-                case "mixed":
-                    _aimMode = AimMode.MIXED;
-                    reply = "[BotAimImprover] aim mode -> MIXED (default)";
-                    break;
-                default:
-                    reply = $"[BotAimImprover] Current aim mode: {_aimMode}. Valid values: head, body, mixed";
-                    break;
-            }
-            Server.PrintToConsole(reply);
-        });
+        _managedAimActive = true;
+        PublishRuntimeStatus();
+        Logger.LogInformation("[BotAimImprover] Loaded with managed CCSBot schema targeting.");
     }
 
     public override void Unload(bool hotReload)
     {
-        try { _pickNewAimSpot?.Unhook(OnPickNewAimSpotPost, HookMode.Post); }
-        catch { /* ignore */ }
+        RemoveListener<Listeners.OnTick>(OnTick);
+        _managedAimActive = false;
+        _cachedTargets.Clear();
+        _consecutiveErrorsByController.Clear();
+    }
+
+    private void OnAimCommand(CCSPlayerController? caller, CounterStrikeSharp.API.Modules.Commands.CommandInfo info)
+    {
+        string arg = info.ArgCount > 1 ? info.GetArg(1).Trim().ToLowerInvariant() : "";
+        if (arg is "head" or "body" or "mixed")
+        {
+            _aimMode = arg switch
+            {
+                "head" => BotAimMode.Head,
+                "body" => BotAimMode.Body,
+                _ => BotAimMode.Mixed,
+            };
+        }
+
+        PublishRuntimeStatus();
+        string reply = !_managedAimActive
+            ? $"[BotAimImprover] Managed aim override is inactive; requested mode {_aimMode} was not applied."
+            : $"[BotAimImprover] aim mode -> {_aimMode}";
+        Server.PrintToConsole(reply);
     }
 
     // ============================================================
-    // Core override logic (Post-hook on PickNewAimSpot)
-    //
-    // Native function already set m_targetSpot to GUT or HEAD based on
-    // mp_damage_headshot_only. We re-pick based on visible enemy parts and the
-    // bot's weapon, then overwrite only the 12 bytes of m_targetSpot.
+    // Core override logic. CounterStrikeSharp 1.0.371 exposes CCSBot through
+    // schema, so this path does not use signatures, function hooks, or offsets.
     // ============================================================
-    private HookResult OnPickNewAimSpotPost(DynamicHook hook)
+    private void OnTick()
     {
-        try
+        float now = Server.CurrentTime;
+        if (!_managedAimActive) return;
+        bool refreshTargets = now >= _nextAimUpdate;
+        if (refreshTargets) _nextAimUpdate = now + AimUpdateInterval;
+
+        foreach (var controller in Utilities.GetPlayers())
         {
-            IntPtr pCCSBot = hook.GetParam<IntPtr>(0);
-            if (pCCSBot == IntPtr.Zero)
-                return HookResult.Continue;
+            if (controller == null || !controller.IsValid || !controller.IsBot || !controller.PawnIsAlive)
+                continue;
 
-            // 1) Gate: enemy must be generally visible before we
-            //    spend any raytraces. Otherwise the native used last-known position.
-            if (ReadByte(pCCSBot + _off.IsVisible) == 0)
-                return HookResult.Continue;
-
-            // 2) Resolve enemy pawn from m_enemy CHandle.
-            int enemyHandleRaw = ReadInt32(pCCSBot + _off.Enemy);
-            if (enemyHandleRaw == -1)
-                return HookResult.Continue;
-
-            int enemyIdx = enemyHandleRaw & 0x7FFF;
-            if (enemyIdx <= 0 || enemyIdx >= 4096)
-                return HookResult.Continue;
-
-            CCSPlayerPawn? enemyPawn = Utilities.GetEntityFromIndex<CCSPlayerPawn>(enemyIdx);
-            if (enemyPawn == null || !enemyPawn.IsValid || enemyPawn.Handle == IntPtr.Zero)
-                return HookResult.Continue;
-
-            // 3) Resolve the bot's controller (for weapon + eye position).
-            var botController = ResolveBotController(pCCSBot);
-            if (botController == null || !TryGetBotEyePosition(botController, out var botEye))
-                return HookResult.Continue;
-
-            string? wpn = botController.PlayerPawn?.Value?.WeaponServices?.ActiveWeapon?.Value?.DesignerName;
-
-            // 4) Select the priority order based on aim mode and weapon.
-            // head: awp -> others -> Head. body: all weapons -> Body.
-            // mixed: body-first weapons -> Body, others -> Jaw.
-            bool isBodyWeapon = wpn != null && _bodyFirstWeapons.Contains(wpn);
-            int[] order = _aimMode switch
+            try
             {
-                AimMode.HEAD => wpn == "weapon_awp" ? _priorityTrunk : _priorityHead,
-                AimMode.BODY => _priorityBody,
-                _ => isBodyWeapon ? _priorityTrunk : _priorityJaw, // MIXED
-            };
-
-            // 5) Walk the priority order and raytrace each point from the bot's
-            // eye; the first visible point wins.
-            int chosenIdx = -1;
-            float rx = 0f, ry = 0f, rz = 0f;
-            foreach (int idx in order)
-            {
-                if (!TryComputePartPos(enemyPawn, idx, out float x, out float y, out float z))
-                    continue;
-                if (!PointVisibleFromEye(botEye, x, y, z))
-                    continue;
-                chosenIdx = idx;
-                rx = x; ry = y; rz = z;
-                break;
+                ApplyAim(controller, refreshTargets);
             }
-            if (chosenIdx < 0)
-                return HookResult.Continue;
-
-            // 6) Overwrite only m_targetSpot.xyz.
-            unsafe
+            catch (Exception ex)
             {
-                float* dst = (float*)(pCCSBot + _off.TargetSpot).ToPointer();
-                dst[0] = rx; dst[1] = ry; dst[2] = rz;
+                _errorCount++;
+                int controllerIndex = (int)controller.Index;
+                int consecutiveErrors = _consecutiveErrorsByController.GetValueOrDefault(controllerIndex) + 1;
+                _consecutiveErrorsByController[controllerIndex] = consecutiveErrors;
+                if (now - _lastErrorLog >= 5.0f || now < _lastErrorLog)
+                {
+                    _lastErrorLog = now;
+                    Logger.LogError(ex, "[BotAimImprover] Managed aim update failed for {Player}", controller.PlayerName);
+                }
+                if (consecutiveErrors >= 8)
+                {
+                    _managedAimActive = false;
+                    _cachedTargets.Clear();
+                    Logger.LogCritical(
+                        "[BotAimImprover] Managed targeting disabled after repeated schema failures; native BotAI remains active.");
+                    PublishRuntimeStatus();
+                    return;
+                }
             }
+        }
+    }
 
-            // One-time confirmation that the override path actually runs end-to-end.
+    private void ApplyAim(CCSPlayerController controller, bool refreshTarget)
+    {
+        int controllerIndex = (int)controller.Index;
+        var pawn = controller.PlayerPawn?.Value;
+        var bot = pawn?.Bot;
+        if (pawn == null || !pawn.IsValid || bot == null || bot.Handle == IntPtr.Zero || !bot.IsEnemyVisible)
+        {
+            _cachedTargets.Remove(controllerIndex);
+            return;
+        }
+
+        var enemyPawn = bot.Enemy.Value;
+        if (enemyPawn == null || !enemyPawn.IsValid || enemyPawn.Handle == IntPtr.Zero)
+        {
+            _cachedTargets.Remove(controllerIndex);
+            return;
+        }
+
+        if (refreshTarget)
+        {
+            if (!TrySelectTarget(pawn, enemyPawn, out int chosenIdx, out string? weapon))
+            {
+                _cachedTargets.Remove(controllerIndex);
+                return;
+            }
+            _cachedTargets[controllerIndex] = new CachedAimTarget(bot.Handle, enemyPawn.Handle, chosenIdx);
+
             if (!_firstOverrideLogged)
             {
                 _firstOverrideLogged = true;
                 Logger.LogInformation(
-                    "[BotAimImprover] Active: first override (weapon={W} point={P}).",
-                    wpn ?? "(null)", _aimPoints[chosenIdx].Name);
+                    "[BotAimImprover] Active: first managed override (weapon={Weapon} point={Point}).",
+                    weapon ?? "(none)", _aimPoints[chosenIdx].Name);
+                PublishRuntimeStatus();
             }
         }
-        catch (Exception ex)
+
+        if (!_cachedTargets.TryGetValue(controllerIndex, out var target) ||
+            target.BotHandle != bot.Handle || target.EnemyHandle != enemyPawn.Handle)
+            return;
+
+        if (!TryComputePartPos(enemyPawn, target.AimPointIndex, out float x, out float y, out float z))
         {
-            Logger.LogError(ex, "[BotAimImprover] Exception in PostHook");
+            _cachedTargets.Remove(controllerIndex);
+            return;
         }
 
-        return HookResult.Continue;
+        Vector targetSpot = bot.TargetSpot;
+        targetSpot.X = x;
+        targetSpot.Y = y;
+        targetSpot.Z = z;
+
+        Vector readback = bot.TargetSpot;
+        if (!NearlyEqual(readback.X, x) || !NearlyEqual(readback.Y, y) || !NearlyEqual(readback.Z, z))
+            throw new InvalidOperationException("CCSBot.TargetSpot write verification failed");
+
+        _consecutiveErrorsByController.Remove(controllerIndex);
+        _overrideCount++;
+        if (target.AimPointIndex <= 2) _headPointCount++;
+        else _bodyPointCount++;
     }
 
-    /// Find the CCSPlayerController whose pawn's m_pBot field equals pCCSBot.
-    /// Cache key: CCSBot pointer. Cache value: bot UserId.
-    private CCSPlayerController? ResolveBotController(IntPtr pCCSBot)
+    private bool TrySelectTarget(
+        CCSPlayerPawn pawn,
+        CCSPlayerPawn enemyPawn,
+        out int chosenIdx,
+        out string? weapon)
     {
-        // Cache hit -> look up by UserId.
-        if (_botToControllerUserId.TryGetValue(pCCSBot, out int cachedUserId))
+        chosenIdx = -1;
+        weapon = null;
+        if (!TryGetBotEyePosition(pawn, out var botEye)) return false;
+
+        weapon = pawn.WeaponServices?.ActiveWeapon?.Value?.DesignerName;
+        int[] order = BotAimPolicy.SelectPriority(_aimMode, weapon) switch
         {
-            foreach (var ctrl in Utilities.GetPlayers())
-                if (ctrl != null && ctrl.IsValid && ctrl.UserId.HasValue && ctrl.UserId.Value == cachedUserId)
-                    return ctrl;
-            _botToControllerUserId.TryRemove(pCCSBot, out int _); // stale
-        }
+            BotAimPriority.Head => _priorityHead,
+            BotAimPriority.Body => _priorityBody,
+            _ => _priorityJaw,
+        };
 
-        // Slow path: find which bot pawn's m_pBot points to pCCSBot.
-        foreach (var ctrl in Utilities.GetPlayers())
+        foreach (int idx in order)
         {
-            if (ctrl == null || !ctrl.IsValid || !ctrl.IsBot || !ctrl.UserId.HasValue)
+            if (!TryComputePartPos(enemyPawn, idx, out float x, out float y, out float z) ||
+                !PointVisibleFromEye(botEye, x, y, z))
                 continue;
-
-            var pawn = ctrl.PlayerPawn?.Value;
-            if (pawn == null || !pawn.IsValid || pawn.Handle == IntPtr.Zero)
-                continue;
-
-            IntPtr pBotPtr;
-            try { pBotPtr = ReadIntPtr(pawn.Handle + _off.PBot); }
-            catch { continue; }
-
-            if (pBotPtr == pCCSBot)
-            {
-                _botToControllerUserId[pCCSBot] = ctrl.UserId.Value;
-                return ctrl;
-            }
+            chosenIdx = idx;
+            break;
         }
-        return null;
+        return chosenIdx >= 0;
+    }
+
+    private static bool NearlyEqual(float actual, float expected) =>
+        float.IsFinite(actual) && Math.Abs(actual - expected) <= 0.01f;
+
+    private void LogRoundCounters()
+    {
+        long overrides = _overrideCount - _loggedOverrideCount;
+        long headPoints = _headPointCount - _loggedHeadPointCount;
+        long bodyPoints = _bodyPointCount - _loggedBodyPointCount;
+        long errors = _errorCount - _loggedErrorCount;
+        if (overrides > 0 || errors > 0)
+        {
+            Logger.LogInformation(
+                "[BotAimImprover] round counters: overrides={Overrides} head_points={HeadPoints} body_points={BodyPoints} errors={Errors} mode={Mode}",
+                overrides,
+                headPoints,
+                bodyPoints,
+                errors,
+                _aimMode);
+        }
+        _loggedOverrideCount = _overrideCount;
+        _loggedHeadPointCount = _headPointCount;
+        _loggedBodyPointCount = _bodyPointCount;
+        _loggedErrorCount = _errorCount;
+        PublishRuntimeStatus();
+    }
+
+    private void PublishRuntimeStatus()
+    {
+        try
+        {
+            if (!PlusManagedPaths.TryResolveCsgoRoot(Server.GameDirectory, out var csgoRoot)) return;
+            BotRuntimeStatusStore.WriteAim(
+                csgoRoot,
+                "managed_ccsbot_schema",
+                _managedAimActive,
+                _aimMode,
+                _overrideCount,
+                _headPointCount,
+                _bodyPointCount,
+                _errorCount);
+        }
+        catch (Exception error)
+        {
+            Logger.LogWarning(error, "[BotAimImprover] Failed to publish managed targeting status");
+        }
     }
 
     // Bot eye position = bot pawn origin + view offset Z.
-    private static bool TryGetBotEyePosition(CCSPlayerController bot, out Vector eye)
+    private static bool TryGetBotEyePosition(CCSPlayerPawn pawn, out Vector eye)
     {
         eye = new Vector(0, 0, 0);
-        var pawn = bot.PlayerPawn?.Value;
-        var origin = pawn?.AbsOrigin;
+        var origin = pawn.AbsOrigin;
         if (origin == null) return false;
-        float ez = pawn!.ViewOffset?.Z ?? 64.0f;
+        float ez = pawn.ViewOffset?.Z ?? 64.0f;
         eye = new Vector(origin.X, origin.Y, origin.Z + ez);
         return true;
     }
@@ -412,23 +394,18 @@ public class BotAimImprover : BasePlugin
                  || float.IsInfinity(x) || float.IsInfinity(y) || float.IsInfinity(z));
     }
 
-    // World-only LoS test from eye to target point, true if unobstructed (>= 0.999)
+    // World-only LoS test from eye to target point. True if unobstructed (>= 0.999).
     private bool PointVisibleFromEye(Vector eye, float tx, float ty, float tz)
     {
         try
         {
+            var rt = _rayTraceCapability.Get();
+            if (rt == null) return true; // RayTrace not loaded -> don't block
             var end = new Vector(tx, ty, tz);
-            var opts = new TraceOptions { InteractsWith = Masks.SolidBrushOnly };
-            var res = Trace.TraceEndShape(eye, end, options: opts);
+            var opts = new TraceOptions(InteractionLayers.MASK_WORLD_ONLY);
+            rt.TraceEndShape(eye, end, null, opts, out TraceResult res);
             return res.Fraction >= 0.999f;
         }
         catch { return true; }
     }
-
-    // ============================================================
-    // Raw memory readers
-    // ============================================================
-    private static unsafe byte ReadByte(IntPtr addr) => *(byte*)addr.ToPointer();
-    private static unsafe int ReadInt32(IntPtr addr) => *(int*)addr.ToPointer();
-    private static unsafe IntPtr ReadIntPtr(IntPtr addr) => *(IntPtr*)addr.ToPointer();
 }

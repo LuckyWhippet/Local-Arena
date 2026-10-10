@@ -11,10 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="BotControllerApi">
-      <HintPath>libs\BotControllerApi.dll</HintPath>
+    <!-- Shared API contract. Deployed to CSS shared/, so don't copy it next to
+         the plugin (Private=false) — both sides must load the one shared DLL. -->
+    <ProjectReference Include="..\..\shared\BotControllerApi\BotControllerApi.csproj">
       <Private>false</Private>
-    </Reference>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
