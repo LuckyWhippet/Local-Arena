@@ -7,7 +7,7 @@ param(
     [string]$LlvmBin,
     [string]$XwinCache,
     [string]$OutputDirectory,
-    [string]$ReleaseVersion = "1.5.0",
+    [string]$ReleaseVersion = "1.5.0.0",
     [string]$MinimumPanelVersion = "1.4.2.4",
     [switch]$SkipBuild,
     [switch]$SkipNpmInstall
@@ -143,14 +143,25 @@ Get-ChildItem -LiteralPath $releaseRoot -Recurse -Filter "gameinfo.gi" -File |
 
 # Upstream botprofile VPKs also contain stale localization files. Current CS2
 # loads those files ahead of its own resources, breaking player-name formatting.
-# Keep only BotProfile.db; difficulty behavior remains byte-for-byte unchanged.
+# Keep only BotProfile.db, and rebuild it from the repository's tracked
+# botprofile.db for that difficulty so Local Arena's profile edits ship too.
 $botProfileVpks = @(Get-ChildItem -LiteralPath (Join-Path $payload "overrides") `
     -Filter "botprofile.vpk" -File -Recurse)
 if ($botProfileVpks.Count -eq 0) {
     throw "The upstream payload contains no botprofile VPKs."
 }
 foreach ($botProfileVpk in $botProfileVpks) {
-    ConvertTo-BotProfileOnlyVpk $botProfileVpk.FullName
+    # The payload root VPK and overrides/<Difficulty>/botprofile.vpk map to
+    # overrides/<Difficulty>/botprofile.db; the root copy falls back to Medium.
+    $relativeDirectory = [IO.Path]::GetRelativePath((Join-Path $payload "overrides"), $botProfileVpk.DirectoryName)
+    $difficulty = if ($relativeDirectory -eq ".") { "Medium" } else { $relativeDirectory }
+    $sourceDatabase = Join-Path $repo "overrides\$difficulty\botprofile.db"
+    if (Test-Path -LiteralPath $sourceDatabase -PathType Leaf) {
+        ConvertTo-BotProfileOnlyVpk $botProfileVpk.FullName -SourceDatabase $sourceDatabase
+    }
+    else {
+        ConvertTo-BotProfileOnlyVpk $botProfileVpk.FullName
+    }
 }
 
 $metamodAddons = Join-Path $metamodExtract "addons"
@@ -195,6 +206,24 @@ Copy-Item -LiteralPath (Join-Path $repo "addons\BotHider\map_whitelist.json") -D
 Copy-Item -LiteralPath (Join-Path $repo "addons\metamod\BotHider.vdf") -Destination (Join-Path $payload "addons\metamod\BotHider.vdf") -Force
 Copy-Item -LiteralPath (Join-Path $repo "cfg\my_bot_ffa_config.cfg") -Destination (Join-Path $payload "cfg\my_bot_ffa_config.cfg") -Force
 Copy-Item -LiteralPath (Join-Path $repo "cfg\my_bot_normal_config.cfg") -Destination (Join-Path $payload "cfg\my_bot_normal_config.cfg") -Force
+
+# Upstream mode configs added since the v1.4.3 base payload (Rush and the
+# rules-unchanged variants) are not part of the upstream release zip, so they
+# are overlaid from the synced repository the same way as the Plus configs.
+$repoCfg = Join-Path $repo "cfg"
+foreach ($cfgFile in Get-ChildItem -LiteralPath $repoCfg -File -Filter "*.cfg") {
+    $cfgDestination = Join-Path $payload "cfg\$($cfgFile.Name)"
+    if (Test-Path -LiteralPath $cfgDestination) { continue }
+    Copy-Item -LiteralPath $cfgFile.FullName -Destination $cfgDestination -Force
+}
+
+# Behavior trees (overrides/scripts/bt_default.kv3 and the per-difficulty
+# bt_config.kv3 files) exist only in the synced upstream tree, never in the
+# v1.4.3 release zip. They must ship or the new bot behavior is inert.
+$repoBehaviorTrees = Join-Path $repo "overrides\scripts"
+if (Test-Path -LiteralPath $repoBehaviorTrees) {
+    Copy-Item -LiteralPath $repoBehaviorTrees -Destination (Join-Path $payload "overrides\scripts") -Recurse -Force
+}
 
 $pluginBuild = Join-Path $repo "addons\counterstrikesharp\plugins\PlayerKnifeCustomizer\bin\Release\net10.0"
 $botImplBuild = Join-Path $repo "addons\counterstrikesharp\plugins\BotHiderImpl\bin\Release\net10.0"

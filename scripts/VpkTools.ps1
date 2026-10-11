@@ -198,34 +198,75 @@ function Read-VpkEmbeddedEntry {
 }
 
 function ConvertTo-BotProfileOnlyVpk {
-    param([Parameter(Mandatory)][string]$Path)
-
-    $botProfile = Read-VpkEmbeddedEntry $Path "botprofile.db"
-    $profileText = [Text.Encoding]::UTF8.GetString($botProfile.Bytes)
-    $normalization = [pscustomobject]@{ Count = 0 }
-    $profileText = [regex]::Replace(
-        $profileText,
-        '(?m)^(\s*LookAngleMaxAccel(?:Normal|Attacking)\s*=\s*)(\S+)',
-        {
-            param($match)
-            $value = 0.0
-            $valid = [double]::TryParse(
-                $match.Groups[2].Value,
-                [Globalization.NumberStyles]::Float,
-                [Globalization.CultureInfo]::InvariantCulture,
-                [ref]$value
-            )
-            if ($valid -and [double]::IsFinite($value) -and $value -ge 0 -and $value -le 20000) {
-                return $match.Value
-            }
-            $normalization.Count++
-            return "$($match.Groups[1].Value)20000.0"
-        }
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        # When supplied, the VPK is rebuilt from this botprofile.db instead of
+        # keeping the copy embedded in the upstream release zip. Local Arena
+        # tracks its own botprofile.db per difficulty, so the packaged VPK must
+        # carry the repository copy or those edits never reach the game.
+        [string]$SourceDatabase
     )
-    [byte[]]$botProfileBytes = [Text.UTF8Encoding]::new($false).GetBytes($profileText)
-    [uint32]$botProfileCrc = Get-Crc32Value $botProfileBytes
-    if ($normalization.Count -gt 0) {
-        Write-Host "Normalized $($normalization.Count) invalid bot acceleration values in $Path"
+
+    if ($SourceDatabase) {
+        if (-not (Test-Path -LiteralPath $SourceDatabase -PathType Leaf)) {
+            throw "botprofile source database not found: $SourceDatabase"
+        }
+        $botProfileBytes = [IO.File]::ReadAllBytes($SourceDatabase)
+        $normalization = [pscustomobject]@{ Count = 0 }
+        $profileText = [Text.Encoding]::UTF8.GetString($botProfileBytes)
+        $profileText = [regex]::Replace(
+            $profileText,
+            '(?m)^(\s*LookAngleMaxAccel(?:Normal|Attacking)\s*=\s*)(\S+)',
+            {
+                param($match)
+                $value = 0.0
+                $valid = [double]::TryParse(
+                    $match.Groups[2].Value,
+                    [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture,
+                    [ref]$value
+                )
+                if ($valid -and [double]::IsFinite($value) -and $value -ge 0 -and $value -le 20000) {
+                    return $match.Value
+                }
+                $normalization.Count++
+                return "$($match.Groups[1].Value)20000.0"
+            }
+        )
+        [byte[]]$botProfileBytes = [Text.UTF8Encoding]::new($false).GetBytes($profileText)
+        [uint32]$botProfileCrc = Get-Crc32Value $botProfileBytes
+        if ($normalization.Count -gt 0) {
+            Write-Host "Normalized $($normalization.Count) invalid bot acceleration values from $SourceDatabase"
+        }
+    }
+    else {
+        $botProfile = Read-VpkEmbeddedEntry $Path "botprofile.db"
+        $profileText = [Text.Encoding]::UTF8.GetString($botProfile.Bytes)
+        $normalization = [pscustomobject]@{ Count = 0 }
+        $profileText = [regex]::Replace(
+            $profileText,
+            '(?m)^(\s*LookAngleMaxAccel(?:Normal|Attacking)\s*=\s*)(\S+)',
+            {
+                param($match)
+                $value = 0.0
+                $valid = [double]::TryParse(
+                    $match.Groups[2].Value,
+                    [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture,
+                    [ref]$value
+                )
+                if ($valid -and [double]::IsFinite($value) -and $value -ge 0 -and $value -le 20000) {
+                    return $match.Value
+                }
+                $normalization.Count++
+                return "$($match.Groups[1].Value)20000.0"
+            }
+        )
+        [byte[]]$botProfileBytes = [Text.UTF8Encoding]::new($false).GetBytes($profileText)
+        [uint32]$botProfileCrc = Get-Crc32Value $botProfileBytes
+        if ($normalization.Count -gt 0) {
+            Write-Host "Normalized $($normalization.Count) invalid bot acceleration values in $Path"
+        }
     }
 
     $treeStream = [IO.MemoryStream]::new()
