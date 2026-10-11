@@ -402,8 +402,8 @@ public class BotAimImprover : BasePlugin
             var rt = _rayTraceCapability.Get();
             if (rt == null) return true; // RayTrace not loaded -> don't block
             var end = new Vector(tx, ty, tz);
-            var opts = new TraceOptions(InteractionLayers.MASK_WORLD_ONLY);
-            rt.TraceEndShape(eye, end, null, opts, out TraceResult res);
+            var opts = new RayTraceAPI.TraceOptions(InteractionLayers.MASK_WORLD_ONLY);
+            rt.TraceEndShape(eye, end, null, opts, out RayTraceAPI.TraceResult res);
             return res.Fraction >= 0.999f;
         }
         catch { return true; }

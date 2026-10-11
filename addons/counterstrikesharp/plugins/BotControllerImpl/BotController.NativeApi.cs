@@ -258,6 +258,75 @@ namespace BotControllerApi
         public static int BuyPlanItemCount(int slot)
             => BotController_GetBuyPlanItemCount(slot);
 
+        // ---- usercmd injection ----
+        // The ABI 14 native payload already exports BotController_InjectUsercmd
+        // and BotController_CancelUsercmdInjection, but has no suppression
+        // export. Probe every entry point at runtime so a native plugin without
+        // a given export degrades to "unsupported" (token 0 / false) instead of
+        // throwing at the first P/Invoke.
+
+        private static nint _usercmdInjectPtr;
+        private static nint _usercmdCancelInjectionPtr;
+        private static bool _usercmdProbed;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate long InjectUsercmdDelegate(int slot, ulong buttonMask, int durationMs);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int CancelUsercmdInjectionDelegate(int slot, long injectionId);
+
+        private static void ProbeUsercmdExports()
+        {
+            if (_usercmdProbed) return;
+            _usercmdProbed = true;
+            try
+            {
+                if (!NativeLibrary.TryLoad("BotController", out var handle)) return;
+                NativeLibrary.TryGetExport(handle, "BotController_InjectUsercmd", out _usercmdInjectPtr);
+                NativeLibrary.TryGetExport(handle, "BotController_CancelUsercmdInjection", out _usercmdCancelInjectionPtr);
+            }
+            catch
+            {
+                _usercmdInjectPtr = nint.Zero;
+                _usercmdCancelInjectionPtr = nint.Zero;
+            }
+        }
+
+        // True when the loaded native plugin exposes usercmd injection.
+        public static bool SupportsUsercmd
+        {
+            get
+            {
+                ProbeUsercmdExports();
+                return _usercmdInjectPtr != nint.Zero;
+            }
+        }
+
+        // Creates a cancellable usercmd injection; returns 0 when unsupported.
+        public static long InjectUsercmd(int slot, ulong buttonMask, int durationMs)
+        {
+            ProbeUsercmdExports();
+            if (_usercmdInjectPtr == nint.Zero) return 0;
+            var fn = Marshal.GetDelegateForFunctionPointer<InjectUsercmdDelegate>(_usercmdInjectPtr);
+            return fn(slot, buttonMask, durationMs);
+        }
+
+        // Cancels one usercmd injection by its token.
+        public static bool CancelUsercmdInjection(int slot, long injectionId)
+        {
+            ProbeUsercmdExports();
+            if (_usercmdCancelInjectionPtr == nint.Zero) return false;
+            var fn = Marshal.GetDelegateForFunctionPointer<CancelUsercmdInjectionDelegate>(_usercmdCancelInjectionPtr);
+            return fn(slot, injectionId) == 0;
+        }
+
+        // Persistent usercmd suppression is not exported by the ABI 14 payload;
+        // callers treat token 0 as "feature unavailable" and skip it.
+        public static long StartUsercmdSuppression(int slot, ulong buttonMask) => 0;
+
+        // No suppression token can exist while StartUsercmdSuppression returns 0.
+        public static bool CancelUsercmdSuppression(int slot, long suppressionId) => false;
+
         // ---- voice ----
 
         // Returns true when the native plugin can send voice net messages.

@@ -52,6 +52,15 @@ namespace BotControllerApi
         public bool ClearAllBuyPlans() => BotController.ClearAllBuyPlans();
         public int BuyPlanItemCount(int slot) => BotController.BuyPlanItemCount(slot);
 
+        // ---- usercmd injection ----
+        // Degrades to 0/false when the loaded native plugin predates these exports.
+        public long InjectUsercmd(int slot, ulong buttonMask, int durationMs = 0)
+            => BotController.InjectUsercmd(slot, buttonMask, durationMs);
+        public long StartUsercmdSuppression(int slot, ulong buttonMask)
+            => BotController.StartUsercmdSuppression(slot, buttonMask);
+        public bool CancelUsercmdSuppression(int slot, long suppressionId)
+            => BotController.CancelUsercmdSuppression(slot, suppressionId);
+
         // ---- voice ----
         public bool CanSendVoice() => BotController.CanSendVoice();
         public int GetVoiceStatus() => BotController.GetVoiceStatus();

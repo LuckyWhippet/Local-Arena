@@ -89,6 +89,21 @@ namespace BotControllerApi
         // Plan item count: -1 none, 0 skip/empty, >0 alias count.
         int BuyPlanItemCount(int slot);
 
+        // ---- usercmd injection ----
+        // Optional capability: providers that cannot drive bot usercmds return 0
+        // (injection/suppression) or false (cancel), and callers skip the feature.
+
+        // Creates an independently cancellable usercmd injection and returns its
+        // token, or 0 when unsupported.
+        long InjectUsercmd(int slot, ulong buttonMask, int durationMs = 0);
+
+        // Starts a persistent, cancellable usercmd button suppression and returns
+        // its token, or 0 when unsupported.
+        long StartUsercmdSuppression(int slot, ulong buttonMask);
+
+        // Cancels one persistent usercmd suppression by its token.
+        bool CancelUsercmdSuppression(int slot, long suppressionId);
+
         // ---- voice ----
 
         // Returns true when the native plugin can send voice net messages.

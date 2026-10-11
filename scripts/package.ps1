@@ -202,13 +202,13 @@ $botApiBuild = Join-Path $repo "addons\counterstrikesharp\shared\BotHiderApi\bin
 $upstreamPluginBuilds = @(
     @{ Name = "BotAI"; Framework = "net10.0" },
     @{ Name = "BotAimImprover"; Framework = "net10.0" },
-    @{ Name = "BotBuy"; Framework = "net8.0" },
+    @{ Name = "BotBuy"; Framework = "net10.0" },
     @{ Name = "BotControllerImpl"; Framework = "net10.0" },
     @{ Name = "BotRandomizer"; Framework = "net10.0" },
     @{ Name = "NadeSystem"; Framework = "net10.0" },
     @{ Name = "RoundDamageRecap"; Framework = "net10.0" },
-    @{ Name = "PlusMatchCoordinator"; Framework = "net8.0" },
-    @{ Name = "TeamLineupInjector"; Framework = "net8.0" }
+    @{ Name = "PlusMatchCoordinator"; Framework = "net10.0" },
+    @{ Name = "TeamLineupInjector"; Framework = "net10.0" }
 )
 foreach ($plugin in $upstreamPluginBuilds) {
     $build = Join-Path $repo "addons\counterstrikesharp\plugins\$($plugin.Name)\bin\Release\$($plugin.Framework)"
