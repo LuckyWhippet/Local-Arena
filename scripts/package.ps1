@@ -234,11 +234,24 @@ $upstreamPluginBuilds = @(
     @{ Name = "BotBuy"; Framework = "net10.0" },
     @{ Name = "BotControllerImpl"; Framework = "net10.0" },
     @{ Name = "BotRandomizer"; Framework = "net10.0" },
+    @{ Name = "BotState"; Framework = "net10.0" },
     @{ Name = "NadeSystem"; Framework = "net10.0" },
     @{ Name = "RoundDamageRecap"; Framework = "net10.0" },
     @{ Name = "PlusMatchCoordinator"; Framework = "net10.0" },
     @{ Name = "TeamLineupInjector"; Framework = "net10.0" }
 )
+# Every plugin that is built from this repository must replace the copy that
+# ships inside the upstream release zip. Anything missing here silently keeps
+# the stale upstream binary, so cross-check the two sets and fail loudly.
+$builtPluginNames = @($upstreamPluginBuilds | ForEach-Object { $_.Name })
+$stalePluginDirectories = @(
+    Get-ChildItem -LiteralPath (Join-Path $payload "addons\counterstrikesharp\plugins") -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -in $builtPluginNames -and
+            -not (Test-Path -LiteralPath (Join-Path $repo "addons\counterstrikesharp\plugins\$($_.Name)\bin\Release\net10.0\$($_.Name).dll")) }
+)
+if ($stalePluginDirectories.Count -gt 0) {
+    throw "Built plugin output is missing for: $($stalePluginDirectories.Name -join ', ')"
+}
 foreach ($plugin in $upstreamPluginBuilds) {
     $build = Join-Path $repo "addons\counterstrikesharp\plugins\$($plugin.Name)\bin\Release\$($plugin.Framework)"
     if (-not (Test-Path -LiteralPath (Join-Path $build "$($plugin.Name).dll"))) {
