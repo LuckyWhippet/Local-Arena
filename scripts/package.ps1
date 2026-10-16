@@ -207,14 +207,14 @@ Copy-Item -LiteralPath (Join-Path $repo "addons\metamod\BotHider.vdf") -Destinat
 Copy-Item -LiteralPath (Join-Path $repo "cfg\my_bot_ffa_config.cfg") -Destination (Join-Path $payload "cfg\my_bot_ffa_config.cfg") -Force
 Copy-Item -LiteralPath (Join-Path $repo "cfg\my_bot_normal_config.cfg") -Destination (Join-Path $payload "cfg\my_bot_normal_config.cfg") -Force
 
-# Upstream mode configs added since the v1.4.3 base payload (Rush and the
-# rules-unchanged variants) are not part of the upstream release zip, so they
-# are overlaid from the synced repository the same way as the Plus configs.
+# Upstream mode configs and every other cfg come from the synced repository so
+# the packaged set matches the tree this fork actually ships. The upstream
+# release zip is only a base for runtime assets; when a cfg exists in both
+# places the repository version must win, otherwise the payload keeps stale
+# v1.4.3 content that the install verification reports as corrupt.
 $repoCfg = Join-Path $repo "cfg"
 foreach ($cfgFile in Get-ChildItem -LiteralPath $repoCfg -File -Filter "*.cfg") {
-    $cfgDestination = Join-Path $payload "cfg\$($cfgFile.Name)"
-    if (Test-Path -LiteralPath $cfgDestination) { continue }
-    Copy-Item -LiteralPath $cfgFile.FullName -Destination $cfgDestination -Force
+    Copy-Item -LiteralPath $cfgFile.FullName -Destination (Join-Path $payload "cfg\$($cfgFile.Name)") -Force
 }
 
 # Behavior trees (overrides/scripts/bt_default.kv3 and the per-difficulty
