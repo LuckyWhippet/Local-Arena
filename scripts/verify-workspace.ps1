@@ -100,11 +100,13 @@ else {
     )
     $allowedUpstreamChanges = @(
         "addons/counterstrikesharp/plugins/BotAI/Common.csproj",
+        "addons/counterstrikesharp/plugins/BotAI/BotAI.csproj",
         "addons/counterstrikesharp/plugins/BotAimImprover/BotAimImprover.cs",
         "addons/counterstrikesharp/plugins/BotAimImprover/BotAimImprover.csproj",
         "addons/counterstrikesharp/plugins/BotBuy/BotBuy.cs",
         "addons/counterstrikesharp/plugins/BotBuy/BotBuy.csproj",
         "addons/counterstrikesharp/plugins/BotRandomizer/BotRandomizer.cs",
+        "addons/counterstrikesharp/plugins/BotRandomizer/BotRandomizer.csproj",
         "addons/counterstrikesharp/plugins/BotRandomizer/Cosmetics/CosmeticModels.cs",
         "addons/counterstrikesharp/plugins/BotRandomizer/bot_randomizer_options.json",
         "addons/counterstrikesharp/plugins/BotState/BotState.csproj",
@@ -121,6 +123,10 @@ else {
         "addons/counterstrikesharp/plugins/NadeSystem/NadeSystem.csproj",
         "addons/counterstrikesharp/plugins/RoundDamageRecap/RoundDamageRecap.cs",
         "addons/counterstrikesharp/plugins/RoundDamageRecap/RoundDamageRecap.csproj",
+        "addons/counterstrikesharp/plugins/OfflineMatchTelemetry/OfflineMatchTelemetry.csproj",
+        "addons/counterstrikesharp/plugins/PlusMatchCoordinator/PlusMatchCoordinator.csproj",
+        "addons/counterstrikesharp/plugins/TeamLineupInjector/TeamLineupInjector.csproj",
+        "addons/counterstrikesharp/plugins/PlayerKnifeCustomizer/PlayerKnifeCustomizer.csproj",
         "overrides/Low/botprofile.db",
         "overrides/Medium/botprofile.db",
         "overrides/High/botprofile.db"
