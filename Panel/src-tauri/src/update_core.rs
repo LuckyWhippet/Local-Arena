@@ -170,7 +170,10 @@ pub fn verify_manifest_signature(
         .map_err(|_| "Update manifest signature must be 64 bytes")?;
     let key =
         VerifyingKey::from_bytes(&public).map_err(|_| "Embedded update public key is invalid")?;
-    key.verify(manifest, &signature)
+    // verify_strict rejects signatures built on small-order or mixed-order
+    // points, which plain verify accepts. For an update feed that decides what
+    // executable replaces the Panel, the stricter check is the right default.
+    key.verify_strict(manifest, &signature)
         .map_err(|_| "Update manifest signature verification failed".into())
 }
 

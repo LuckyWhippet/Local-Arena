@@ -405,6 +405,16 @@ fn download_component(
             "Update the Panel before installing this plugin version",
         ));
     }
+    // Refuse to move backwards. A cached manifest may legitimately be stale, and
+    // without this check a still-valid older release could be installed over a
+    // newer one, which silently undoes fixes.
+    if update_core::DisplayVersion::parse(&component.version).map_err(AppError::update)?
+        <= update_core::DisplayVersion::parse(app_version::display()).map_err(AppError::update)?
+    {
+        return Err(AppError::update(
+            "The available update is not newer than the installed version",
+        ));
+    }
     let directory = update_root()?.join("downloads").join(&component.version);
     fs::create_dir_all(&directory).map_err(AppError::transaction_io)?;
     let archive = directory.join(format!("{name}.zip"));

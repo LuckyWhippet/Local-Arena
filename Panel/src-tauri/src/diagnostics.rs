@@ -159,12 +159,27 @@ fn recent_files(directory: &Path, limit: usize) -> Vec<PathBuf> {
 fn recent_files_recursive(directory: &Path, limit: usize, max_depth: usize) -> Vec<PathBuf> {
     let mut pending = vec![(directory.to_path_buf(), 0usize)];
     let mut files = Vec::new();
+    // The diagnostic archive is assembled from whatever sits under these roots.
+    // A junction or symlink planted in the tree would otherwise pull unrelated
+    // system files into a ZIP the user then shares, so links are skipped and
+    // every collected path must still resolve inside the starting directory.
+    let root = fs::canonicalize(directory).ok();
     while let Some((current, depth)) = pending.pop() {
         for entry in fs::read_dir(current).into_iter().flatten().flatten() {
             let Ok(file_type) = entry.file_type() else { continue; };
+            if file_type.is_symlink() {
+                continue;
+            }
             if file_type.is_file() {
+                let path = entry.path();
+                if let Some(root) = root.as_deref() {
+                    match fs::canonicalize(&path) {
+                        Ok(canonical) if canonical.starts_with(root) => {}
+                        _ => continue,
+                    }
+                }
                 let modified = entry.metadata().and_then(|metadata| metadata.modified()).unwrap_or(UNIX_EPOCH);
-                files.push((modified, entry.path()));
+                files.push((modified, path));
             } else if file_type.is_dir() && depth < max_depth {
                 pending.push((entry.path(), depth + 1));
             }
