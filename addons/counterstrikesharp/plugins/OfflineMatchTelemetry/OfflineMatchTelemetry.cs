@@ -883,7 +883,9 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         {
             if (!player.IsValid || player.Team is not CsTeam.Terrorist and not CsTeam.CounterTerrorist) continue;
             var stats = player.ActionTrackingServices?.MatchStats;
-            var steamId = player.SteamID.ToString();
+            // Same identity rule as PlayerId: bots share SteamID 0, so keying them
+            // by SteamID would merge every bot into one snapshot.
+            var steamId = PlayerId(player);
             var previous = _prev.GetValueOrDefault(steamId);
             players.Add(new(
                 steamId, player.PlayerName, Team(player.Team)!, player.IsBot, player.PawnIsAlive,
@@ -900,7 +902,11 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
 
     private void CachePlayers(IEnumerable<PlayerSnapshot> players)
     {
-        var cached = _lastPlayers.ToDictionary(player => player.SteamId);
+        // GroupBy rather than ToDictionary: several bots can share SteamId "0",
+        // and a duplicate key would throw instead of caching them.
+        var cached = _lastPlayers
+            .GroupBy(player => player.SteamId)
+            .ToDictionary(group => group.Key, group => group.Last());
         foreach (var player in players) cached[player.SteamId] = player;
         _lastPlayers = [.. cached.Values];
     }
@@ -912,7 +918,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         {
             if (!player.IsValid || player.Team is not CsTeam.Terrorist and not CsTeam.CounterTerrorist) continue;
             var stats = player.ActionTrackingServices?.MatchStats;
-            _prev[player.SteamID.ToString()] = new(
+            _prev[PlayerId(player)] = new(
                 stats?.Kills ?? 0, stats?.Deaths ?? 0, stats?.Assists ?? 0,
                 stats?.Damage ?? 0, stats?.HeadShotKills ?? 0);
         }
@@ -1212,7 +1218,16 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
 
     private static bool IsPlaying(CCSPlayerController? player) => player is { IsValid: true }
         && player.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist;
-    private static string PlayerId(CCSPlayerController player) => player.SteamID.ToString();
+    private static string PlayerId(CCSPlayerController player)
+    {
+        // Bots carry SteamID 0, so keying by SteamID alone collapses every bot
+        // into the same entry and ToDictionary throws "same key has already been
+        // added: 0". Fall back to the entity slot for anything without a real
+        // SteamID so each bot keeps a stable identity of its own.
+        var steamId = player.SteamID;
+        if (steamId != 0) return steamId.ToString();
+        return player.IsBot ? $"bot:{player.Slot}" : $"player:{player.Slot}";
+    }
     private static IEnumerable<CCSPlayerController> PlayingPlayers() => Utilities
         .FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller").Where(IsPlaying);
     private static bool HasBalancedPlayingRoster()
