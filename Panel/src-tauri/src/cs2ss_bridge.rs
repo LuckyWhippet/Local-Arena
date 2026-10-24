@@ -1160,9 +1160,17 @@ mod tests {
         std::env::temp_dir().join(format!("cs2ss-test-{suffix}"))
     }
 
+    // open_db is read-only on purpose (the commands only query). Tests seed
+    // fixture rows, so they need a writable handle to the same file.
+    fn open_db_for_seeding(csgo: &str) -> rusqlite::Connection {
+        let path = cs2ss_db_path(csgo).unwrap();
+        rusqlite::Connection::open(&path).unwrap()
+    }
+
     fn setup_test_db(root: &std::path::Path) {
         // Commands validate the CS2 directory before touching it, so the temp
         // root needs the same markers a real install carries.
+        std::fs::create_dir_all(root).unwrap();
         std::fs::write(root.join("gameinfo.gi"), b"\"GameInfo\"\n{\n}\n").unwrap();
         std::fs::create_dir_all(root.join("cfg")).unwrap();
         let db_dir = root.join(".csbip").join("cs2ss");
@@ -1306,7 +1314,7 @@ mod tests {
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
 
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         conn.execute(
             "INSERT INTO matches (map, started_at, status, rounds_played, ct_score, t_score, mode_family, ruleset, game_type, game_mode) VALUES ('de_inferno', '2025-02-01T00:00:00Z', 'in_progress', 0, 0, 0, 'competitive', 'round_based', 0, 1)",
             [],
@@ -1324,7 +1332,7 @@ mod tests {
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
 
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         let match_id = insert_completed_match(&conn);
         insert_player(&conn, match_id, "76561198000000001", "Player1");
 
@@ -1343,7 +1351,7 @@ mod tests {
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
 
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         conn.execute(
             "INSERT INTO matches (map, started_at, ended_at, status, rounds_played, ct_score, t_score, mode_family, ruleset, game_type, game_mode, duration_seconds) VALUES ('de_nuke', '2025-03-01T00:00:00Z', '2025-03-01T00:30:00Z', 'completed', 30, 16, 14, 'competitive', 'round_based', 0, 1, 2000)",
             [],
@@ -1363,7 +1371,7 @@ mod tests {
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
 
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         conn.execute(
             "INSERT INTO matches (map, started_at, status, rounds_played, ct_score, t_score, mode_family, ruleset, game_type, game_mode) VALUES ('de_ancient', '2025-04-01T00:00:00Z', 'abandoned', 0, 0, 0, 'competitive', 'round_based', 0, 1)",
             [],
@@ -1381,7 +1389,7 @@ mod tests {
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
 
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         conn.execute(
             "INSERT INTO matches (map, started_at, status, rounds_played, ct_score, t_score, mode_family, ruleset, game_type, game_mode) VALUES ('de_mirage', '2025-05-01T00:00:00Z', 'in_progress', 0, 0, 0, 'competitive', 'round_based', 0, 1)",
             [],
@@ -1402,7 +1410,7 @@ mod tests {
         let root = test_root();
         setup_test_db(&root);
         let csgo = root.to_str().unwrap().to_string();
-        let conn = open_db(&csgo).unwrap();
+        let conn = open_db_for_seeding(&csgo);
         conn.execute(
             "INSERT INTO matches (map, started_at, ended_at, status, rounds_played, ct_score, t_score, mode_family, ruleset, game_type, game_mode, duration_seconds)
              VALUES ('de_dust2', '2025-06-01T00:00:00Z', '2025-06-01T00:10:00Z', 'completed', 0, 0, 0, 'deathmatch', 'ffa', 1, 2, 600)",
@@ -1472,6 +1480,11 @@ mod tests {
         assert!(!is_valid_steam_id64("7656119800000000"));
 
         let root = test_root();
+        // save/get validate the directory, so give the temp root the markers a
+        // real install carries.
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("gameinfo.gi"), b"\"GameInfo\"\n{\n}\n").unwrap();
+        std::fs::create_dir_all(root.join("cfg")).unwrap();
         let csgo = root.to_str().unwrap().to_string();
         let invalid = save_cs2ss_config(
             csgo.clone(),
