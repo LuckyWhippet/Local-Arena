@@ -199,7 +199,12 @@ public sealed class PlayerKnifeCustomizerPlugin : BasePlugin
     private readonly Dictionary<ushort, List<WeaponSkinEntry>> _skinCatalog = new();
     private readonly HashSet<(ushort DefIndex, int Paint)> _legacyPaints = new();
     private KnifeConfig _config = new();
-    private MemoryFunctionVoid<nint, string, float>? _setAttrByName;
+    // SetOrAddAttributeValueByName(CEconItemAttributeList*, const char*, float) -> int.
+    // The older void SetAttributeByName entry point stopped being emitted by
+    // server.dll in the 2026-10-23 CS2 update, which silently disabled every
+    // cosmetic write. The "OrAdd" variant is still exported and also creates
+    // the attribute when it is absent, which is what skin painting needs.
+    private MemoryFunctionWithReturn<nint, string, float, int>? _setAttrByName;
     private ulong _nextItemId = 0xC5200000;
     private readonly ApplyErrorThrottle _applyErrorThrottle = new(TimeSpan.FromSeconds(30));
     private int _loadedConfigSchema = KnifeConfig.CurrentSchemaVersion;
@@ -225,10 +230,13 @@ public sealed class PlayerKnifeCustomizerPlugin : BasePlugin
 
         try
         {
-            _setAttrByName = new MemoryFunctionVoid<nint, string, float>(
+            // Verified present in server.dll as a .pdata function start:
+            // file offset 0x01074050 / RVA 0x01074C50 (2026-10-23 CS2 build,
+            // ClientVersion 2000935, SourceRevision 11162119).
+            _setAttrByName = new MemoryFunctionWithReturn<nint, string, float, int>(
                 RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-                    ? "55 48 89 E5 41 57 41 56 49 89 FE 41 55 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85"
-                    : "40 53 55 41 56 48 81 EC 90 00 00 00");
+                    ? "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85"
+                    : "48 89 4C 24 ? 53 41 55 41 56");
         }
         catch (Exception ex)
         {
@@ -632,12 +640,29 @@ public sealed class PlayerKnifeCustomizerPlugin : BasePlugin
         SetTextureAttributes(handle, preset.Paint, preset.Seed, preset.Wear);
     }
 
+    // Writes one attribute through SetOrAddAttributeValueByName and reports
+    // whether the native call accepted it, so a cosmetic write is never
+    // silently dropped the way the stale void entry point used to fail.
+    private bool WriteAttribute(nint handle, string name, float value)
+    {
+        if (_setAttrByName == null || handle == nint.Zero) return false;
+        try
+        {
+            return _setAttrByName.Invoke(handle, name, value) == 0;
+        }
+        catch (Exception ex)
+        {
+            LogApplyError($"attribute {name}", ex);
+            return false;
+        }
+    }
+
     private void SetTextureAttributes(nint handle, int paint, int seed, float wear)
     {
         if (handle == nint.Zero) return;
-        _setAttrByName!.Invoke(handle, "set item texture prefab", paint);
-        _setAttrByName.Invoke(handle, "set item texture seed", seed);
-        _setAttrByName.Invoke(handle, "set item texture wear", wear);
+        WriteAttribute(handle, "set item texture prefab", paint);
+        WriteAttribute(handle, "set item texture seed", seed);
+        WriteAttribute(handle, "set item texture wear", wear);
     }
 
     private bool TryApplyDecorations(ushort defIndex, CEconItemView item, KnifePreset preset)
@@ -666,7 +691,7 @@ public sealed class PlayerKnifeCustomizerPlugin : BasePlugin
         {
             nint handle = item.NetworkedDynamicAttributes.Handle;
             foreach (var attribute in attributes)
-                _setAttrByName!.Invoke(handle, attribute.Name, attribute.Value);
+                WriteAttribute(handle, attribute.Name, attribute.Value);
             return true;
         }
         catch (Exception ex)
@@ -696,10 +721,10 @@ public sealed class PlayerKnifeCustomizerPlugin : BasePlugin
         if (networkedHandle == nint.Zero || attributeHandle == nint.Zero) return;
 
         float count = BitConverter.Int32BitsToSingle(preset.StatTrakCount);
-        _setAttrByName.Invoke(networkedHandle, "kill eater", count);
-        _setAttrByName.Invoke(networkedHandle, "kill eater score type", 0);
-        _setAttrByName.Invoke(attributeHandle, "kill eater", count);
-        _setAttrByName.Invoke(attributeHandle, "kill eater score type", 0);
+        WriteAttribute(networkedHandle, "kill eater", count);
+        WriteAttribute(networkedHandle, "kill eater score type", 0);
+        WriteAttribute(attributeHandle, "kill eater", count);
+        WriteAttribute(attributeHandle, "kill eater score type", 0);
         Utilities.SetStateChanged(weapon, "CEconEntity", "m_AttributeManager");
     }
 
