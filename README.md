@@ -37,7 +37,7 @@
 
 The current `main` branch targets **1.5.0**
 
-Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.376**
+Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.378**
 
 **Guide:** [First installation](#four-step-first-installation) · [Existing installation](#updating-an-existing-installation) · [Launch modes](#choose-the-correct-mode) · [Cosmetics](#player-cosmetic-presets) · [Recovery](#installation-updates-and-recovery) · [Troubleshooting](#troubleshooting)
 
@@ -75,9 +75,19 @@ This continuation fork keeps every Local Arena feature and re-synchronizes it wi
 
 - **Upstream code re-synced** to [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2` (2026-10-08): BotAI, BotAimImprover, BotBuy, BotRandomizer, BotState, NadeSystem, RoundDamageRecap and the BotHider integration are vendored at the exact commits upstream pins, with Local Arena's own modifications re-applied on top
 - **Rush mode support** and **behavior trees** from upstream (`overrides/scripts/bt_default.kv3` + per-difficulty `bt_config.kv3`), plus the updated mode configs (Casual, Competitive, Wingman, DM, FFA, Armsrace, Workshop, 2v2)
-- **CounterStrikeSharp v1.0.376** runtime and API everywhere (dependencies.json pins the real 1.0.376 release assets with verified hashes)
+- **CounterStrikeSharp v1.0.378** runtime and API everywhere, including the game-update fixes that build carries
 - BotBuy and BotAimImprover keep Local Arena's managed/guarded architecture (schema-based target spot writes, generation-guarded buy timers, purchasing gates for PLUS matches, scoped-rifle purchase normalization)
 - NadeSystem grenade catalog stays at `plugins/NadeSystem/grenades` (plugin reads it from `ModuleDirectory` at runtime)
+
+### Fixes this fork ships that upstream Local Arena does not
+
+**Cosmetics work again after the 2026-10-23 game update.** That update removed the native `SetAttributeByName` entry point that `PlayerKnifeCustomizer` used for every cosmetic write, so knives, gloves, weapon skins, stickers and charms stopped applying while the plugin still reported a clean load. The plugin now calls the still-exported `SetOrAddAttributeValueByName` (verified against `server.dll` through the PE `.pdata` table) and checks each write's return value instead of dropping failures silently.
+
+**The game no longer exits after a map loads.** CounterStrikeSharp 1.0.376 was built for the previous game build; its gamedata signatures no longer matched CS2 1.41.9.2 and the process exited a few seconds after `Map start`. This fork pins 1.0.378, the release that targets that build.
+
+**Online updates actually resolve.** The updater previously read its feed from the archived upstream repository, wrote download URLs pointing at that same repository, and embedded the upstream author's signing key, so it could neither find nor verify an update. The feed now points at this repository and the manifest is signed with a key pair generated for this fork.
+
+**A fresh install is usable without a manual mode switch.** Installing the payload never wrote `gameinfo.gi`, and CS2 only searches `addons/metamod` when that file lists it ahead of the plain `Game csgo` entry. The installer now applies the enhanced-bots layout once the transaction commits.
 
 Local Arena modifications are tracked as explicit patches: `verify-workspace.ps1` compares the vendored plugin directories against the `vendor-sync-2026-10-08` snapshot so accidental drift is caught the same way it always was.
 
@@ -276,6 +286,7 @@ The Panel and plugin payload are checked and installed separately
 - Plugin updates require the selected CS2 process to be closed
 - Downloads are verified by signature, size, and SHA-256 before installation
 - Player presets use the preserve-config policy and are not overwritten by repair or update
+- The update feed is served from this repository, and `latest.json` is signed with a key pair generated for this fork. A build downloaded from the archived upstream repository cannot verify these manifests; install one release from here to switch over, after which updates work normally
 
 <p align="center">
   <img src="./Panel/src/assets/guide/05-online-update.png" alt="Panel and plugin online updates" width="100%">
@@ -345,6 +356,14 @@ Keep the current version, confirm GitHub connectivity, retry a manual check, and
 - Confirm the current CT or T knife, glove, and weapon presets are enabled
 - Verify and repair the managed installation before using recovery actions
 - Normal matchmaking intentionally disables PlayerCosmetics
+- Open the console and run `css_cs2bi_knives_status`. If it reports `signature=missing`, the game update moved the native attribute function again and the plugin needs a signature refresh; if the command itself is unknown, CounterStrikeSharp never loaded and the mode is wrong
+- Confirm `gameinfo.gi` lists `Game csgo/addons/metamod` **before** `Game csgo`. CS2 stops at the first match, so the plain entry first means the stock `server.dll` loads and every plugin is skipped without an error
+
+### CS2 exits right after a map loads
+
+- Check the CounterStrikeSharp version in the Panel. Each game update moves engine functions, so a runtime built for the previous build exits a few seconds after `Map start`
+- Confirm the Panel and plugin payload are both up to date before reporting a crash
+- If only the bots behave oddly while the game stays up, that is a plugin patch mismatch, not a crash; export diagnostics and check the plugin log
 
 ### Restore original state does not produce clean CS2
 

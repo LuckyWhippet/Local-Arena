@@ -38,7 +38,7 @@
 
 当前 `main` 分支源码版本为 **1.5.0**
 
-已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.376**
+已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.378**
 
 **教程导航：** [首次安装](#四步完成首次安装) · [已有安装](#更新已有安装) · [启动模式](#选择正确的启动模式) · [玩家饰品](#玩家饰品预设) · [更新恢复](#安装更新与恢复) · [常见问题](#常见问题)
 
@@ -76,9 +76,19 @@
 
 - **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2`（2026-10-08）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
 - 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/bt_default.kv3` 及 High/Low/Medium 难度 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
-- **CounterStrikeSharp v1.0.376** 运行时与 API（dependencies.json 已钉住真实 1.0.376 发布资产与校验哈希）
+- **CounterStrikeSharp v1.0.378** 运行时与 API，含该版本针对游戏更新的修复
 - BotBuy、BotAimImprover 保留 Local Arena 的托管/守卫架构（schema 目标点写入、代际守卫购买定时器、PLUS 对局购买门禁、狙击步枪购买规范化）
 - NadeSystem 投掷物目录仍位于 `plugins/NadeSystem/grenades`（插件运行时从 `ModuleDirectory` 读取）
+
+### 本 Fork 修复的问题（原版 Local Arena 未修）
+
+**2026-10-23 游戏更新后换肤重新可用。** 那次更新移除了 `PlayerKnifeCustomizer` 写所有饰品所依赖的原生入口 `SetAttributeByName`，导致刀、手套、武器皮肤、贴纸与挂件全部失效，而插件加载日志仍显示正常。现在改为调用仍在导出的 `SetOrAddAttributeValueByName`（已通过 PE `.pdata` 函数表在 `server.dll` 中核实），并检查每次写入的返回值，不再静默丢弃失败。
+
+**进图后游戏不再退出。** CounterStrikeSharp 1.0.376 是针对上一版游戏构建的，其 gamedata 签名与 CS2 1.41.9.2 不再匹配，进程会在 `Map start` 后几秒内退出。本 Fork 钉住 1.0.378，即针对该构建发布的版本。
+
+**在线更新真正可用。** 此前更新器从已归档的上游仓库读取更新源，生成的下载地址也指向该仓库，并内嵌了上游作者的签名公钥，因此既找不到也无法验证更新。现在更新源指向本仓库，清单由为本 Fork 生成的密钥对签名。
+
+**新装即可用，无需手动切模式。** 安装负载时从不写入 `gameinfo.gi`，而 CS2 只有在 `Game csgo` 之前列出 `addons/metamod` 时才会搜索该目录。现在安装事务提交后会自动应用增强人机布局。
 
 Local Arena 的改动以显式补丁形式维护：`verify-workspace.ps1` 将 vendored 插件目录与 `vendor-sync-2026-10-08` 快照对比，沿用原有机制防止意外漂移。
 
@@ -277,6 +287,7 @@ Local Arena 的改动以显式补丁形式维护：`verify-workspace.ps1` 将 ve
 - 插件更新前必须关闭所选目录对应的 CS2
 - 下载内容通过签名、大小和 SHA-256 验证后才会安装
 - 玩家预设使用保留配置策略，不会被修复或更新覆盖
+- 更新源由本仓库提供，`latest.json` 使用为本 Fork 生成的密钥对签名。从已归档的上游仓库下载的旧版无法验证这些清单，请先从本仓库安装一次以完成切换，之后更新即可正常工作
 
 <p align="center">
   <img src="./Panel/src/assets/guide/05-online-update.png" alt="面板和插件在线更新" width="100%">
@@ -346,12 +357,20 @@ Local Arena 的改动以显式补丁形式维护：`verify-workspace.ps1` 将 ve
 - 确认当前 CT 或 T 的刀具、手套和武器预设已经启用
 - 使用恢复功能前，先验证并修复受管安装
 - 正常匹配模式会主动关闭 PlayerCosmetics
+- 打开控制台执行 `css_cs2bi_knives_status`。若返回 `signature=missing`，说明游戏更新再次移动了原生属性函数，插件需要重新定位签名；若提示该指令不存在，则 CounterStrikeSharp 根本没加载，模式选错了
+- 确认 `gameinfo.gi` 中 `Game csgo/addons/metamod` 排在 `Game csgo` **之前**。CS2 按顺序搜索并停在第一个命中项，`Game csgo` 在前就会加载原版 `server.dll`，所有插件被静默跳过且不报错
 
 ### 一键恢复原样后仍然不是纯净 CS2
 
 **一键恢复原样**会回到受管安装记录中的安装前状态，而安装前状态本身可能已经包含旧版兼容安装或上游插件
 
 需要删除所有能够确认的增强插件时，应使用**恢复纯净 CS2**，然后在启动游戏前完成 Steam 文件验证
+
+### CS2 进图后立即退出
+
+- 检查面板中显示的 CounterStrikeSharp 版本。每次游戏更新都会移动引擎函数，为上一版构建的运行时会在 `Map start` 后几秒内退出
+- 报告闪退前先确认面板与插件负载都已是最新版本
+- 若游戏保持运行、只是人机行为异常，那是插件补丁不匹配而非崩溃；请导出诊断并查看插件日志
 
 ### CS2 卡死或闪退
 
