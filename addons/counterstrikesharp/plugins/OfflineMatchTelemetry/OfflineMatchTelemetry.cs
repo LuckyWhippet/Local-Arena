@@ -19,6 +19,13 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
     private int _round;
     private int _lastObservedRounds = -1;
     private int _lastWrittenRound = -1;
+    // Rounds the engine counted before the current half. Halftime zeroes
+    // TotalRoundsPlayed, so the absolute round number is this plus what the
+    // engine reports now.
+    private int _roundOffset;
+    // Highest TotalRoundsPlayed seen in the current half. A drop means the
+    // counter was zeroed, which happens at halftime and at a genuine restart.
+    private int _halfPeakRounds = -1;
     private int _tickCounter;
     private int _ctScore;
     private int _tScore;
@@ -102,7 +109,9 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
             if (!BeginMatch()) return HookResult.Continue;
             if (_isDeathmatch) return HookResult.Continue;
             _roundStartEvents++;
-            _round = GetTotalRoundsPlayed();
+            var roundsPlayed = GetTotalRoundsPlayed();
+            if (roundsPlayed > _halfPeakRounds) _halfPeakRounds = roundsPlayed;
+            _round = _roundOffset + roundsPlayed;
             _lastObservedRounds = _round;
             SnapshotBase();
             StartEventRound();
@@ -223,8 +232,26 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         try
         {
             var roundsPlayed = GetTotalRoundsPlayed();
-            if (_lastObservedRounds >= 0 && roundsPlayed < _lastObservedRounds)
+            if (_halfPeakRounds >= 0 && roundsPlayed < _halfPeakRounds)
             {
+                // The engine zeroed TotalRoundsPlayed. That happens at halftime,
+                // and it also happens when a finished offline match returns to
+                // team selection on the same map. Tell them apart by score: a
+                // halftime switch keeps the score, a real restart clears it.
+                if (IsHalftimeReset())
+                {
+                    // Same match, new half: keep the running totals, rebase the
+                    // round counter so round numbers keep increasing, and leave
+                    // _matchStartedAt alone so duration is not reset.
+                    _roundOffset += _halfPeakRounds;
+                    _halfPeakRounds = -1;
+                    _lastObservedRounds = _roundOffset;
+                    _round = _roundOffset;
+                    Log("Halftime switch on {Map}: continuing match {MatchId} at round {Round}",
+                        _matchMap, _currentMatchId, _roundOffset);
+                    return;
+                }
+
                 // A finished offline match returns to team selection on the same map. The game
                 // resets this counter before the next selected side begins a new match.
                 FinalizeMatch("ROUND_COUNTER_RESET");
@@ -232,21 +259,24 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
                 if (!BeginMatch()) return;
             }
 
-            if (_lastObservedRounds == roundsPlayed) return;
+            if (roundsPlayed > _halfPeakRounds) _halfPeakRounds = roundsPlayed;
+            var absoluteRound = _roundOffset + roundsPlayed;
+
+            if (_lastObservedRounds == absoluteRound) return;
 
             var gameRules = GetGameRules();
             if (!_eventRoundActive) StartEventRound();
             if (_lastObservedRounds >= 0)
             {
-                var completedRound = roundsPlayed - 1;
+                var completedRound = absoluteRound - 1;
                 if (completedRound >= 0 && completedRound > _lastWrittenRound)
                     WriteRoundSummary(completedRound,
                         Team(gameRules?.RoundEndWinnerTeam ?? 0),
                         gameRules?.RoundEndReason, "poll");
             }
 
-            _lastObservedRounds = roundsPlayed;
-            _round = roundsPlayed;
+            _lastObservedRounds = absoluteRound;
+            _round = absoluteRound;
             SnapshotBase();
             StartEventRound();
         }
@@ -263,7 +293,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         try
         {
             var gameRules = GetGameRules();
-            var lastRound = GetTotalRoundsPlayed() - 1;
+            var lastRound = _roundOffset + GetTotalRoundsPlayed() - 1;
             if (!_isDeathmatch && lastRound >= 0 && lastRound > _lastWrittenRound)
                 WriteRoundSummary(lastRound,
                     Team(gameRules?.RoundEndWinnerTeam ?? 0),
@@ -296,6 +326,8 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         _teamAScore = 0;
         _teamBScore = 0;
         _round = 0;
+        _roundOffset = 0;
+        _halfPeakRounds = -1;
         _prev.Clear();
         Log("Match {MatchId} started on {Map} mode={Mode} ruleset={Ruleset}",
             _currentMatchId, Server.MapName, _modeFamily, _ruleset);
@@ -783,6 +815,8 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         _round = 0;
         _lastObservedRounds = -1;
         _lastWrittenRound = -1;
+        _roundOffset = 0;
+        _halfPeakRounds = -1;
         _tickCounter = 0;
         _ctScore = 0;
         _tScore = 0;
@@ -816,11 +850,29 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         .FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules")
         .FirstOrDefault()?.GameRules?.TotalRoundsPlayed ?? 0;
 
+    // Distinguishes a halftime side switch from a real restart on the same map.
+    //
+    // Both zero TotalRoundsPlayed, so the counter alone cannot tell them apart.
+    // The score can: halftime carries the score into the second half, while a
+    // finished match returns to team selection with everything cleared. A
+    // deathmatch has no halves, so a reset there is always a real restart.
+    private bool IsHalftimeReset()
+    {
+        if (_isDeathmatch) return false;
+        // Rounds must already have been played; otherwise there is nothing to carry.
+        if (_halfPeakRounds <= 0) return false;
+        var scored = _ctScore + _tScore + _teamAScore + _teamBScore;
+        if (scored <= 0) return false;
+        // Halftime happens after a half of a competitive match. Treat a reset that
+        // arrives before any round was recorded as a restart, not a switch.
+        return _roundOffset + _halfPeakRounds > 0;
+    }
+
     private CCSGameRules? GetGameRules() => Utilities
         .FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules")
         .FirstOrDefault()?.GameRules;
 
-    private int CompletedRounds() => Math.Max(_lastWrittenRound + 1, Math.Max(_lastObservedRounds, GetTotalRoundsPlayed()));
+    private int CompletedRounds() => Math.Max(_lastWrittenRound + 1, Math.Max(_lastObservedRounds, _roundOffset + GetTotalRoundsPlayed()));
     private static bool IsValidMap(string? mapName) => !string.IsNullOrWhiteSpace(mapName)
         && !string.Equals(mapName, "<empty>", StringComparison.OrdinalIgnoreCase);
 

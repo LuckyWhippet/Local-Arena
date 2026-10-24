@@ -62,7 +62,11 @@ public sealed class TeamLineupInjectorPlugin : BasePlugin
         {
             Logger.LogInformation("[TeamLineup] Lineup disabled or config missing, not interfering");
             ClearTeamIdentity();
-            RestoreBotQuota();
+            // Only restore the quota before the match is under way. EventPlayerTeam
+            // also fires for a halftime side switch and for a manual team change in
+            // deathmatch; restarting there wipes the score and resets the clock,
+            // which is exactly the progress loss this guard prevents.
+            if (RoundsPlayedSoFar() == 0) RestoreBotQuota();
             return HookResult.Continue;
         }
 
@@ -272,6 +276,13 @@ public sealed class TeamLineupInjectorPlugin : BasePlugin
         Server.ExecuteCommand("mp_restartgame 1");
         Logger.LogInformation("[TeamLineup] Restored default bot quota and restarted game");
     }
+
+    // Rounds already decided, read straight from the game rules. Used to tell a
+    // pre-match side pick (safe to restart) from a halftime switch or a mid-match
+    // team change (must not restart).
+    private static int RoundsPlayedSoFar() => Utilities
+        .FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules")
+        .FirstOrDefault()?.GameRules?.TotalRoundsPlayed ?? 0;
 
     private string LineupConfigPath()
     {
