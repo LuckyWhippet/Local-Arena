@@ -411,6 +411,23 @@ fn copy_file_for(stage: &str, source: &Path, destination: &Path) -> Result<()> {
             destination.display()
         ))
     })?;
+    // The journal is fsynced before any replacement, so a backup that is still
+    // only in the page cache would let a power loss leave the journal claiming
+    // a backup exists while the file on disk is truncated. Rollback would then
+    // overwrite the user's original with garbage. Open for write because
+    // sync_all needs a writable handle on Windows.
+    retry_file_io(|| {
+        fs::OpenOptions::new()
+            .write(true)
+            .open(destination)
+            .and_then(|file| file.sync_all())
+    })
+    .map_err(|error| {
+        AppError::transaction(format!(
+            "{stage}: cannot flush backup {}: {error}",
+            destination.display()
+        ))
+    })?;
     Ok(())
 }
 

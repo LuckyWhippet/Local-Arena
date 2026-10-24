@@ -10,6 +10,20 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
+// A diagnostic archive gets shared with other people. Absolute paths embed the
+// Windows account name and the machine's folder layout, so anything that leaves
+// the app is reported relative to a known root instead.
+fn relative_label(root: &Path, path: &Path) -> String {
+    if let Ok(relative) = path.strip_prefix(root) {
+        return relative.to_string_lossy().replace('\\', "/");
+    }
+    // Not under the expected root: keep only the file name so the archive still
+    // says which artifact it was without disclosing where it lives.
+    path.file_name()
+        .map(|name| format!("<external>/{}", name.to_string_lossy()))
+        .unwrap_or_else(|| "<unknown>".into())
+}
+
 fn match_metadata(csgo: &Path) -> serde_json::Value {
     let root = csgo.join(".csbip/matches");
     let mut entries = Vec::new();
@@ -22,7 +36,7 @@ fn match_metadata(csgo: &Path) -> serde_json::Value {
                 entries.push(serde_json::json!({
                     "session_id": directory.file_name().to_string_lossy(),
                     "kind": name,
-                    "path": file.to_string_lossy(),
+                    "path": relative_label(csgo, &file),
                     "size": metadata.len(),
                     "modified_unix": metadata.modified().ok().and_then(|time| time.duration_since(UNIX_EPOCH).ok()).map(|value| value.as_secs()),
                 }));
@@ -49,7 +63,7 @@ fn runtime_mount_metadata(csgo: &Path) -> serde_json::Value {
             .map(|bytes| format!("{:x}", Sha256::digest(bytes)));
         serde_json::json!({
             "name": name,
-            "path": path.to_string_lossy(),
+            "path": relative_label(csgo, &path),
             "present": metadata.is_some(),
             "size": metadata.map(|value| value.len()),
             "sha256": sha256,
@@ -57,7 +71,7 @@ fn runtime_mount_metadata(csgo: &Path) -> serde_json::Value {
     })
     .collect::<Vec<_>>();
     serde_json::json!({
-        "gameinfo_path": gameinfo.to_string_lossy(),
+        "gameinfo_path": relative_label(csgo, &gameinfo),
         "gameinfo_present": gameinfo_bytes.is_some(),
         "metamod_search_path": gameinfo_bytes.as_deref().is_some_and(mode_files::contains_metamod_search_path),
         "botprofile_search_path": gameinfo_bytes.as_deref().is_some_and(mode_files::contains_botprofile_search_path),
@@ -233,7 +247,9 @@ fn crash_dump_metadata() -> serde_json::Value {
         if !name.contains("cs2") && !name.contains("cs2botimprover") { continue; }
         if let Ok(metadata) = fs::metadata(&path) {
             dumps.push(serde_json::json!({
-                "path": path.to_string_lossy(),
+                // Crash dumps live under the user profile; report the file name
+                // only so the archive does not carry the account path.
+                "path": format!("<crashdumps>/{name}"),
                 "size": metadata.len(),
                 "modified_unix": metadata.modified().ok()
                     .and_then(|time| time.duration_since(UNIX_EPOCH).ok()).map(|value| value.as_secs()),
@@ -391,8 +407,10 @@ pub fn export(state_root: &Path, csgo: Option<&Path>, snapshot: &serde_json::Val
         "generated_at_unix": timestamp,
         "os": std::env::consts::OS,
         "architecture": std::env::consts::ARCH,
-        "state_root": state_root.to_string_lossy(),
-        "csgo": csgo.map(|path| path.to_string_lossy()),
+        // Relative labels only: this archive is meant to be shared, and an
+        // absolute path would disclose the account name and folder layout.
+        "state_root": "<state>",
+        "csgo": csgo.map(|_| "<csgo>"),
     }))?;
     collector.add_json("report/crash-dumps.json", &crash_dump_metadata())?;
     collector.add_json("report/appearance.json", &appearance_metadata(state_root))?;

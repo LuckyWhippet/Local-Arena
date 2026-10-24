@@ -228,6 +228,10 @@ pub fn replace_file_with_backup(
             .map_err(|error| format!("Cannot create Panel backup directory: {error}"))?;
     }
     fs::copy(target, backup).map_err(|error| format!("Cannot back up current Panel: {error}"))?;
+    // Flush the backup before the target is replaced. Otherwise a power loss
+    // can leave a truncated backup while the replacement has already landed,
+    // and the restore path would put that truncated file back.
+    crate::atomic_fs::sync(backup).map_err(|error| format!("Cannot flush Panel backup: {error}"))?;
     let temporary = crate::atomic_fs::temporary_path(target).map_err(|error| error.to_string())?;
     let result = (|| -> std::result::Result<(), String> {
         fs::copy(staged, &temporary)
@@ -312,6 +316,8 @@ pub fn extract_zip_safely<R: Read + Seek>(
     fs::create_dir_all(destination)
         .map_err(|error| format!("Cannot create update directory: {error}"))?;
     let mut extracted = 0_u64;
+    // Tracks bytes actually written, independent of the declared sizes above.
+    let mut actual_extracted = 0_u64;
     for index in 0..archive.len() {
         let mut entry = archive
             .by_index(index)
@@ -344,12 +350,25 @@ pub fn extract_zip_safely<R: Read + Seek>(
         }
         let mut file = File::create(&output)
             .map_err(|error| format!("Cannot create extracted file: {error}"))?;
-        io::copy(&mut entry, &mut file)
+        // Cap the copy at the remaining budget plus one byte. The running total
+        // above only sums the sizes the ZIP central directory claims, which a
+        // crafted archive can understate; bounding the actual write is what
+        // makes the extracted-size limit hold.
+        let remaining = MAX_EXTRACTED_BYTES
+            .checked_sub(actual_extracted)
+            .ok_or_else(|| "Update ZIP exceeds the extracted size limit".to_string())?;
+        let written = io::copy(&mut entry.by_ref().take(remaining.saturating_add(1)), &mut file)
             .map_err(|error| format!("Cannot extract update file: {error}"))?;
+        if written > remaining {
+            return Err("Update ZIP exceeds the extracted size limit".into());
+        }
+        actual_extracted = actual_extracted
+            .checked_add(written)
+            .ok_or_else(|| "Update ZIP extracted size overflow".to_string())?;
         file.sync_all()
             .map_err(|error| format!("Cannot flush extracted update file: {error}"))?;
     }
-    Ok(extracted)
+    Ok(actual_extracted)
 }
 
 #[cfg(test)]

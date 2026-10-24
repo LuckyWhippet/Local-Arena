@@ -516,6 +516,12 @@ pub fn prepare_plugin(app: &AppHandle) -> Result<(String, PathBuf)> {
     );
     let directory = update_root()?.join("payloads").join(&component.version);
     clear_directory(&directory)?;
+    // Re-verify immediately before extracting. The earlier check ran against the
+    // path, and Windows lets another process swap the file in between; verifying
+    // here narrows that window, and the payload manifest check below covers the
+    // content that actually lands on disk.
+    update_core::verify_component_file(&archive, component.size, &component.sha256)
+        .map_err(|error| AppError::update(format!("Downloaded update changed on disk: {error}")))?;
     let file = File::open(archive).map_err(AppError::transaction_io)?;
     if let Err(error) = update_core::extract_zip_safely(file, &directory) {
         let _ = fs::remove_dir_all(&directory);
@@ -719,6 +725,44 @@ fn process_exists(_pid: u32) -> bool {
     false
 }
 
+// The panel-update helper runs as its own process and reads its plan from disk,
+// then replaces `target` and spawns it. Every path in that plan must therefore
+// be proven safe: the staged file and the backup belong to the update cache,
+// and the executable being replaced must be a Panel binary with the same
+// parent directory as the running one.
+fn validate_panel_update_paths(
+    update_root: &Path,
+    target: &Path,
+    current: &Path,
+    staged: &Path,
+    backup: &Path,
+) -> std::result::Result<(), String> {
+    let expected_name = PANEL_EXECUTABLE_NAME;
+    let legacy_name = LEGACY_PANEL_EXECUTABLE_NAME;
+    let is_panel_binary = |path: &Path| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case(expected_name) || name.eq_ignore_ascii_case(legacy_name))
+    };
+
+    if !is_panel_binary(target) {
+        return Err("Panel update target is not a Panel executable".into());
+    }
+    if target.parent() != current.parent() {
+        return Err("Panel update target is outside the running Panel directory".into());
+    }
+
+    let cache = fs::canonicalize(update_root).map_err(|error| format!("Cannot resolve update cache: {error}"))?;
+    for (label, path) in [("staged", staged), ("backup", backup)] {
+        let canonical = fs::canonicalize(path)
+            .map_err(|error| format!("Cannot resolve the {label} file: {error}"))?;
+        if !canonical.starts_with(&cache) {
+            return Err(format!("Panel update {label} file is outside the update cache"));
+        }
+    }
+    Ok(())
+}
+
 pub fn maybe_apply_panel_update() -> bool {
     let mut arguments = std::env::args_os();
     let _ = arguments.next();
@@ -748,6 +792,11 @@ pub fn maybe_apply_panel_update() -> bool {
         let current = PathBuf::from(&plan.current);
         let staged = PathBuf::from(&plan.staged);
         let backup = PathBuf::from(&plan.backup);
+        // This helper is a separate process reading a plan file from disk, and it
+        // spawns `target` afterwards. Confine every path so a tampered plan
+        // cannot overwrite an arbitrary file or launch an arbitrary executable.
+        let plan_root = update_root().map_err(|error| error.detail)?;
+        validate_panel_update_paths(&plan_root, &target, &current, &staged, &backup)?;
         update_core::install_file_with_backup(&staged, &current, &target, &backup)?;
         if let Err(error) = Command::new(&target).spawn() {
             let migrated = !current.eq_ignore_ascii_case(&target);
