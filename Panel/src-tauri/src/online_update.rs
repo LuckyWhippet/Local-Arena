@@ -579,10 +579,55 @@ pub fn active_payload_root() -> Option<PathBuf> {
     }
     let path = fs::canonicalize(pointer.path).ok()?;
     let payloads = fs::canonicalize(updates.join("payloads")).ok()?;
-    if !path.starts_with(payloads) || installer::verify_payload(&path).is_err() {
+    if !path.starts_with(payloads) {
+        return None;
+    }
+    if !payload_verified(&path) {
         return None;
     }
     Some(path)
+}
+
+// verify_payload hashes every file in the payload. active_payload_root is called
+// from the runtime snapshot that the UI polls, so verifying unconditionally
+// meant re-hashing the whole payload several times a second. Cache the result
+// keyed by the payload's manifest fingerprint: same manifest, same verdict.
+static VERIFIED_PAYLOAD: OnceLock<Mutex<Option<(PathBuf, String)>>> = OnceLock::new();
+
+fn payload_fingerprint(root: &Path) -> Option<String> {
+    let manifest = root.join(installer::MANIFEST_FILE);
+    let metadata = fs::metadata(&manifest).ok()?;
+    Some(format!(
+        "{}:{}",
+        metadata.len(),
+        metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|value| value.as_nanos())
+            .unwrap_or_default()
+    ))
+}
+
+fn payload_verified(root: &Path) -> bool {
+    let Some(fingerprint) = payload_fingerprint(root) else {
+        return false;
+    };
+    let cache = VERIFIED_PAYLOAD.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = cache.lock() {
+        if let Some((cached_path, cached_fingerprint)) = guard.as_ref() {
+            if cached_path == root && cached_fingerprint == &fingerprint {
+                return true;
+            }
+        }
+    }
+    if installer::verify_payload(root).is_err() {
+        return false;
+    }
+    if let Ok(mut guard) = cache.lock() {
+        *guard = Some((root.to_path_buf(), fingerprint));
+    }
+    true
 }
 
 pub fn prepare_panel(app: &AppHandle) -> Result<UpdateResult> {
