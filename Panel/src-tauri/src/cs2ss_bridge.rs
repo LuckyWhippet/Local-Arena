@@ -1,31 +1,68 @@
 use crate::{write_json_atomic, AppError, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-fn cs2ss_root(csgo: &str) -> PathBuf {
-    PathBuf::from(csgo).join(".csbip").join("cs2ss")
+// Every command below is reachable from the webview through `invoke`, and the
+// `csgo` argument is caller-controlled. Resolving it with a bare PathBuf::from
+// let a script point these queries (and save_cs2ss_config's write) at any
+// directory on the machine. Validate the same way lib.rs::csgo_path does: the
+// candidate must look like a CS2 install and is then canonicalized, so symlinks
+// and ".." segments cannot escape it.
+fn validated_csgo(raw: &str) -> Result<PathBuf> {
+    let selected = PathBuf::from(raw.trim().trim_matches('"'));
+    let candidates = [
+        selected.clone(),
+        selected.join("game").join("csgo"),
+        selected.join("csgo"),
+    ];
+    for candidate in candidates {
+        if looks_like_csgo(&candidate) {
+            let canonical = std::fs::canonicalize(&candidate).map_err(|error| {
+                AppError::directory(format!(
+                    "Cannot resolve the selected CS2 directory ({}): {error}",
+                    candidate.display()
+                ))
+            })?;
+            return Ok(canonical);
+        }
+    }
+    Err(AppError::directory(format!(
+        "The selected path is not a CS2 game/csgo directory: {}",
+        selected.display()
+    )))
 }
 
-fn cs2ss_db_path(csgo: &str) -> PathBuf {
-    cs2ss_root(csgo).join("telemetry.db")
+fn looks_like_csgo(path: &Path) -> bool {
+    path.join("gameinfo.gi").is_file() && path.join("cfg").is_dir()
 }
 
-fn cs2ss_config_path(csgo: &str) -> PathBuf {
-    cs2ss_root(csgo).join("config.json")
+fn cs2ss_root(csgo: &str) -> Result<PathBuf> {
+    Ok(validated_csgo(csgo)?.join(".csbip").join("cs2ss"))
+}
+
+fn cs2ss_db_path(csgo: &str) -> Result<PathBuf> {
+    Ok(cs2ss_root(csgo)?.join("telemetry.db"))
+}
+
+fn cs2ss_config_path(csgo: &str) -> Result<PathBuf> {
+    Ok(cs2ss_root(csgo)?.join("config.json"))
 }
 
 fn open_db(csgo: &str) -> Result<rusqlite::Connection> {
-    let root = cs2ss_root(csgo);
-    std::fs::create_dir_all(&root).ok();
-    let path = cs2ss_db_path(csgo);
-    if !path.exists() {
+    // Read-only: these commands only query. Creating the directory here would
+    // let a caller provoke a filesystem write in an arbitrary location.
+    let path = cs2ss_db_path(csgo)?;
+    if !path.is_file() {
         return Err(AppError::invalid(format!(
             "暂无本地统计数据 ({}). 请检查 Local Arena 安装状态，并在完成一场比赛后重试。",
             path.display()
         )));
     }
-    rusqlite::Connection::open(&path)
-        .map_err(|e| AppError::invalid(format!("Cannot open CS2SS database: {e}")))
+    rusqlite::Connection::open_with_flags(
+        &path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| AppError::invalid(format!("Cannot open CS2SS database: {e}")))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1083,7 +1120,7 @@ fn is_valid_steam_id64(value: &str) -> bool {
 
 #[tauri::command]
 pub fn get_cs2ss_config(csgo: String) -> Result<Cs2ssConfig> {
-    let path = cs2ss_config_path(&csgo);
+    let path = cs2ss_config_path(&csgo)?;
     if path.exists() {
         let bytes = std::fs::read_to_string(&path)
             .map_err(|e| AppError::invalid(format!("Cannot read CS2SS config: {e}")))?;
@@ -1102,7 +1139,7 @@ pub fn save_cs2ss_config(csgo: String, mut config: Cs2ssConfig) -> Result<()> {
             "SteamID64 must be 17 digits and start with 7656119".to_string(),
         ));
     }
-    let path = cs2ss_config_path(&csgo);
+    let path = cs2ss_config_path(&csgo)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| AppError::invalid(format!("Cannot create CS2SS config directory: {e}")))?;
@@ -1124,6 +1161,10 @@ mod tests {
     }
 
     fn setup_test_db(root: &std::path::Path) {
+        // Commands validate the CS2 directory before touching it, so the temp
+        // root needs the same markers a real install carries.
+        std::fs::write(root.join("gameinfo.gi"), b"\"GameInfo\"\n{\n}\n").unwrap();
+        std::fs::create_dir_all(root.join("cfg")).unwrap();
         let db_dir = root.join(".csbip").join("cs2ss");
         std::fs::create_dir_all(&db_dir).unwrap();
         let db_path = db_dir.join("telemetry.db");
