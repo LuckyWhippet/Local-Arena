@@ -9,11 +9,17 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
+// Update feed for this community continuation fork. The archived upstream
+// repository (numakkiyu/Local-Arena) publishes no new releases, so pointing the
+// updater there made every check fail with "no update available".
 pub const MANIFEST_URL: &str =
-    "https://github.com/numakkiyu/Local-Arena/releases/latest/download/latest.json";
+    "https://github.com/LuckyWhippet/Local-Arena/releases/latest/download/latest.json";
 const SIGNATURE_URL: &str =
-    "https://github.com/numakkiyu/Local-Arena/releases/latest/download/latest.json.sig";
-const UPDATE_PUBLIC_KEY: &str = "RbIjlfASpYVu740SsmQMLuLO7ExxiDBYTdnYThfqU/4=";
+    "https://github.com/LuckyWhippet/Local-Arena/releases/latest/download/latest.json.sig";
+// Ed25519 public key that signs latest.json. Regenerated for this fork; the
+// matching private seed stays on the release machine and is never committed.
+// scripts/update-public-key.txt must always hold the same value.
+const UPDATE_PUBLIC_KEY: &str = "JQXq3ONLqDWie+3grMfJabG3RAbxJ0/77bsnROGN6N0=";
 const CACHE_SECONDS: u64 = 6 * 60 * 60;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);

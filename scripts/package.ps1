@@ -9,6 +9,9 @@ param(
     [string]$OutputDirectory,
     [string]$ReleaseVersion = "1.5.0.0",
     [string]$MinimumPanelVersion = "1.4.2.4",
+    # Repository that hosts the release assets. The updater in the Panel reads
+    # latest.json from this same repository, so both must agree.
+    [string]$ReleaseRepository = "LuckyWhippet/Local-Arena",
     [switch]$SkipBuild,
     [switch]$SkipNpmInstall
 )
@@ -460,12 +463,12 @@ foreach ($name in @("addons", "cfg", "overrides", "plus-payload-manifest.json"))
 $pluginZip = Join-Path $OutputDirectory "LocalArena-plugin-$releaseTag-windows.zip"
 Compress-Archive -Path (Join-Path $pluginStage "*") -DestinationPath $pluginZip -CompressionLevel Optimal
 
-$releaseBase = "https://github.com/numakkiyu/Local-Arena/releases/download/$releaseTag"
+$releaseBase = "https://github.com/$ReleaseRepository/releases/download/$releaseTag"
 $latest = [ordered]@{
     schema_version = 1
     release_version = $displayVersion
     published_at = [DateTimeOffset]::UtcNow.ToString("o")
-    release_notes_url = "https://github.com/numakkiyu/Local-Arena/releases/tag/$releaseTag"
+    release_notes_url = "https://github.com/$ReleaseRepository/releases/tag/$releaseTag"
     components = [ordered]@{
         panel = [ordered]@{
             version = $displayVersion
@@ -487,10 +490,23 @@ $latestPath = Join-Path $OutputDirectory "latest.json"
 $latest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $latestPath -Encoding utf8
 $signaturePath = Join-Path $OutputDirectory "latest.json.sig"
 if ($env:CSBIP_UPDATE_SIGNING_KEY) {
-    $python = (Get-Command python -ErrorAction Stop).Source
-    & $python (Join-Path $PSScriptRoot "sign-update.py") $latestPath $signaturePath `
-        --public-key (Join-Path $PSScriptRoot "update-public-key.txt")
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $signaturePath)) { throw "Update signing failed." }
+    # Prefer the Node signer: it needs no third-party packages, so a broken pip
+    # environment cannot block a release. The Python signer stays as a fallback
+    # for machines that already have PyNaCl.
+    $publicKeyPath = Join-Path $PSScriptRoot "update-public-key.txt"
+    $nodeSigner = Join-Path $PSScriptRoot "sign-update.mjs"
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if ($node -and (Test-Path -LiteralPath $nodeSigner)) {
+        & $node.Source $nodeSigner $latestPath $signaturePath --public-key $publicKeyPath
+        if ($LASTEXITCODE -ne 0) { throw "Update signing failed (Node signer)." }
+    }
+    else {
+        $python = (Get-Command python -ErrorAction Stop).Source
+        & $python (Join-Path $PSScriptRoot "sign-update.py") $latestPath $signaturePath `
+            --public-key $publicKeyPath
+        if ($LASTEXITCODE -ne 0) { throw "Update signing failed (Python signer)." }
+    }
+    if (-not (Test-Path -LiteralPath $signaturePath)) { throw "Update signing produced no signature file." }
 }
 
 $sumFiles = @($fullZip, $panelZip, $pluginZip, $latestPath)

@@ -1,4 +1,4 @@
-use crate::{AppError, Result, atomic_fs, mode_layout};
+use crate::{AppError, Result, atomic_fs, logging, mode_files, mode_layout};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -1219,6 +1219,12 @@ pub fn install(
     write_json_atomic(&journal_path, &journal)?;
     let _ = fs::remove_dir_all(transaction_root);
     fs::remove_file(journal_path).map_err(AppError::transaction_io)?;
+    // Installing the payload alone does not make the plugins load: CS2 only
+    // searches addons/metamod when gameinfo.gi lists it before the plain
+    // "Game csgo" entry. Apply the enhanced-bots layout now so a fresh install
+    // is usable without a manual mode switch. Failures are logged, not fatal,
+    // because the file may be locked by a running game.
+    apply_post_install_layout(target);
     Ok(InstallTransactionResult {
         package_version: manifest.package_version,
         installed_files,
@@ -1231,6 +1237,26 @@ pub fn install(
             repaired,
         ),
     })
+}
+
+// Makes a freshly installed payload actually load on the next game start.
+//
+// The ordering rule matters: CS2 walks SearchPaths in order and stops at the
+// first match, so "Game csgo" must come after "Game csgo/addons/metamod".
+// mode_files::apply_launch_mode already implements that ordering and also
+// strips the entries when switching back to Online.
+fn apply_post_install_layout(target: &Path) {
+    if !target.join("gameinfo.gi").is_file() {
+        return;
+    }
+    if let Err(error) = mode_files::apply_launch_mode(target, mode_files::LaunchMode::Bots) {
+        let _ = logging::append(
+            target,
+            "WARN",
+            "install.layout",
+            &format!("Could not apply the enhanced-bots gameinfo layout: {error}"),
+        );
+    }
 }
 
 fn preserve_cosmetics(state_root: &Path, target: &Path, timestamp: u64) -> Result<Option<PathBuf>> {
