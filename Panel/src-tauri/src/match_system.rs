@@ -337,7 +337,19 @@ pub fn active(csgo: &Path) -> Result<Option<MatchSession>> {
     let request: MatchRequest = read_json(&path)?;
     let (result_path, _) = validated_request_paths(csgo, &request)?;
     if result_path.is_file() {
-        return read_json::<MatchResult>(&result_path).map(|result| Some(session_from_result(result, result_path)));
+        // The result file sits next to the request, but its contents are not
+        // otherwise tied to the active session. Reject a result that names a
+        // different session so a stale or hand-edited file cannot present
+        // itself as the active match.
+        let result: MatchResult = read_json(&result_path)?;
+        if result.session_id != request.session_id {
+            return Err(AppError::new(
+                "E1704",
+                "match",
+                "Active match result does not belong to the active session",
+            ));
+        }
+        return Ok(Some(session_from_result(result, result_path)));
     }
     Ok(Some(session_from_request(&request)))
 }
