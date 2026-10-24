@@ -1,4 +1,4 @@
-use crate::{AppError, Result, atomic_fs, logging, mode_files, mode_layout};
+use crate::{AppError, Result, atomic_fs, logging, mode_files, mode_layout, steam};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -313,6 +313,47 @@ fn safe_relative(raw: &str) -> Result<PathBuf> {
         return Err(AppError::payload(format!("Unsafe payload path: {raw}")));
     }
     Ok(path)
+}
+
+// Resolves `raw` under `root` and proves the result stays inside it.
+//
+// safe_relative alone is not enough for values read back from journal.json or
+// record.json: those files live on disk and a tampered copy could point a
+// delete or a write anywhere. This checks the resolved path's lexical prefix
+// and, when the path already exists, its canonical form too, so a junction or
+// symlink inside the tree cannot redirect the operation outside.
+fn confined_path(root: &Path, raw: &str, label: &str) -> Result<PathBuf> {
+    let relative = safe_relative(raw)?;
+    let candidate = root.join(&relative);
+    let root_absolute = std::path::absolute(root).map_err(AppError::transaction_io)?;
+    let candidate_absolute = std::path::absolute(&candidate).map_err(AppError::transaction_io)?;
+    if !candidate_absolute.starts_with(&root_absolute) {
+        return Err(AppError::transaction(format!(
+            "{label} escapes its directory: {raw}"
+        )));
+    }
+    if let Ok(canonical_root) = fs::canonicalize(root) {
+        if let Ok(canonical_candidate) = fs::canonicalize(&candidate) {
+            if !canonical_candidate.starts_with(&canonical_root) {
+                return Err(AppError::transaction(format!(
+                    "{label} resolves outside its directory: {raw}"
+                )));
+            }
+        }
+    }
+    Ok(candidate)
+}
+
+// Journal/record targets come from a JSON file on disk, so they must match the
+// installation this process is operating on rather than being trusted.
+fn journal_target(journal: &TransactionJournal, target: &Path) -> Result<PathBuf> {
+    let recorded = PathBuf::from(&journal.target);
+    if !steam::paths_equal(&recorded, target) {
+        return Err(AppError::transaction(
+            "Transaction journal belongs to a different CS2 installation",
+        ));
+    }
+    Ok(recorded)
 }
 
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
@@ -902,17 +943,26 @@ pub fn plan(payload_root: &Path, state_root: &Path, target: &Path) -> Result<Ins
     })
 }
 
-fn rollback(directory: &Path, journal: &TransactionJournal) -> Result<()> {
+fn rollback(directory: &Path, journal: &TransactionJournal, target: &Path) -> Result<()> {
+    // The journal is attacker-reachable data: both the destination root and the
+    // backup source are confined before anything is copied.
+    let target_root = journal_target(journal, target)?;
     for change in journal.changes.iter().rev() {
-        let target = PathBuf::from(&journal.target).join(safe_relative(&change.path)?);
+        let destination = confined_path(&target_root, &change.path, "Rollback destination")?;
         if change.existed {
             let backup = change
                 .backup
                 .as_ref()
                 .ok_or_else(|| AppError::transaction("Rollback backup is missing"))?;
-            copy_file_for("transaction rollback", &directory.join(backup), &target)?;
-        } else if target.is_file() {
-            fs::remove_file(&target).map_err(AppError::transaction_io)?;
+            let source = confined_path(directory, backup, "Rollback backup")?;
+            if !source.is_file() {
+                return Err(AppError::transaction(format!(
+                    "Rollback backup is missing: {backup}"
+                )));
+            }
+            copy_file_for("transaction rollback", &source, &destination)?;
+        } else if destination.is_file() {
+            fs::remove_file(&destination).map_err(AppError::transaction_io)?;
         }
     }
     Ok(())
@@ -939,10 +989,22 @@ fn recover_incomplete_locked(state_root: &Path, target: &Path) -> Result<bool> {
         serde_json::from_slice(&fs::read(&journal_path).map_err(AppError::transaction_io)?)
             .map_err(|error| AppError::transaction(error.to_string()))?;
     if !journal.committed {
-        rollback(&directory, &journal)?;
+        rollback(&directory, &journal, target)?;
         restore_previous_record(&directory, &journal.previous_record)?;
     }
-    let _ = fs::remove_dir_all(directory.join(&journal.transaction_dir));
+    // transaction_dir is read back from disk, so confine it to a single level
+    // under the installation directory before removing anything. Without this a
+    // forged journal could name "../../.." and wipe an arbitrary directory.
+    let transaction_root = confined_path(&directory, &journal.transaction_dir, "Transaction directory")?;
+    if transaction_root.parent() != Some(directory.as_path()) {
+        return Err(AppError::transaction(format!(
+            "Transaction directory must be a direct child of the installation directory: {}",
+            journal.transaction_dir
+        )));
+    }
+    if transaction_root.is_dir() {
+        let _ = fs::remove_dir_all(&transaction_root);
+    }
     fs::remove_file(journal_path).map_err(AppError::transaction_io)?;
     Ok(true)
 }
@@ -1189,10 +1251,17 @@ pub fn install(
     })();
 
     if let Err(error) = outcome {
-        let rollback_error = rollback(&directory, &journal).err();
+        let rollback_error = rollback(&directory, &journal, target).err();
         let record_error = restore_previous_record(&directory, &journal.previous_record).err();
-        let _ = fs::remove_dir_all(&transaction_root);
-        let _ = fs::remove_file(&journal_path);
+        // Keep the journal and the transaction backups when the rollback did not
+        // complete: they are the only material recover_incomplete can use to
+        // finish the job on the next run. Deleting them here would turn a
+        // recoverable failure (a locked file, an antivirus hold) into a
+        // permanently half-updated installation.
+        if rollback_error.is_none() && record_error.is_none() {
+            let _ = fs::remove_dir_all(&transaction_root);
+            let _ = fs::remove_file(&journal_path);
+        }
         return Err(rollback_error.or(record_error).unwrap_or(error));
     }
 
@@ -1366,10 +1435,17 @@ pub fn restore(payload_root: &Path, state_root: &Path, target: &Path) -> Result<
     drop(stage);
 
     if let Err(error) = outcome {
-        let rollback_error = rollback(&directory, &journal).err();
+        let rollback_error = rollback(&directory, &journal, target).err();
         let record_error = restore_previous_record(&directory, &journal.previous_record).err();
-        let _ = fs::remove_dir_all(&transaction_root);
-        let _ = fs::remove_file(&journal_path);
+        // Keep the journal and the transaction backups when the rollback did not
+        // complete: they are the only material recover_incomplete can use to
+        // finish the job on the next run. Deleting them here would turn a
+        // recoverable failure (a locked file, an antivirus hold) into a
+        // permanently half-updated installation.
+        if rollback_error.is_none() && record_error.is_none() {
+            let _ = fs::remove_dir_all(&transaction_root);
+            let _ = fs::remove_file(&journal_path);
+        }
         return Err(rollback_error.or(record_error).unwrap_or(error));
     }
 
@@ -1578,10 +1654,17 @@ pub fn restore_pristine(
     })();
 
     if let Err(error) = outcome {
-        let rollback_error = rollback(&directory, &journal).err();
+        let rollback_error = rollback(&directory, &journal, target).err();
         let record_error = restore_previous_record(&directory, &journal.previous_record).err();
-        let _ = fs::remove_dir_all(&transaction_root);
-        let _ = fs::remove_file(&journal_path);
+        // Keep the journal and the transaction backups when the rollback did not
+        // complete: they are the only material recover_incomplete can use to
+        // finish the job on the next run. Deleting them here would turn a
+        // recoverable failure (a locked file, an antivirus hold) into a
+        // permanently half-updated installation.
+        if rollback_error.is_none() && record_error.is_none() {
+            let _ = fs::remove_dir_all(&transaction_root);
+            let _ = fs::remove_file(&journal_path);
+        }
         return Err(rollback_error.or(record_error).unwrap_or(error));
     }
 
@@ -2148,6 +2231,68 @@ mod tests {
     fn rejects_parent_directory_payload_paths() {
         assert!(safe_relative("../gameinfo.gi").is_err());
         assert!(safe_relative(r"C:\\game\\csgo").is_err());
+    }
+
+    #[test]
+    fn confined_path_keeps_journal_values_inside_their_directory() {
+        let base = root("confined-path");
+        let installation = base.join("installation");
+        fs::create_dir_all(&installation).unwrap();
+
+        // Ordinary payload paths still resolve.
+        let ok = confined_path(&installation, "addons/plugin/plugin.dll", "test").unwrap();
+        assert!(ok.starts_with(&installation));
+
+        // The shapes a tampered journal would use are refused.
+        assert!(confined_path(&installation, "../../../Windows/System32", "test").is_err());
+        assert!(confined_path(&installation, r"C:\Windows\System32", "test").is_err());
+        assert!(confined_path(&installation, "/etc/passwd", "test").is_err());
+
+        fs::remove_dir_all(base).ok();
+    }
+
+    #[test]
+    fn transaction_directory_must_be_a_direct_child_of_the_installation() {
+        let base = root("transaction-dir");
+        let installation = base.join("installation");
+        fs::create_dir_all(&installation).unwrap();
+
+        // A nested name is inside the directory but not a direct child.
+        let nested = confined_path(&installation, "transaction-1/nested", "test").unwrap();
+        assert_ne!(nested.parent(), Some(installation.as_path()));
+
+        // Escapes never resolve at all.
+        assert!(confined_path(&installation, "..\\..\\Windows", "test").is_err());
+
+        fs::remove_dir_all(base).ok();
+    }
+
+    #[test]
+    fn journal_target_must_match_the_installation_being_operated_on() {
+        let base = root("journal-target");
+        let installation = base.join("csgo");
+        fs::create_dir_all(&installation).unwrap();
+        let other = base.join("elsewhere");
+        fs::create_dir_all(&other).unwrap();
+
+        let matching = TransactionJournal {
+            schema_version: 1,
+            operation: "install".into(),
+            target: installation.to_string_lossy().into_owned(),
+            transaction_dir: "transaction-1".into(),
+            changes: Vec::new(),
+            committed: false,
+            previous_record: None,
+        };
+        assert!(journal_target(&matching, &installation).is_ok());
+        // A journal written for a different installation must not drive writes.
+        assert!(journal_target(&matching, &other).is_err());
+
+        let mut foreign = matching.clone();
+        foreign.target = other.to_string_lossy().into_owned();
+        assert!(journal_target(&foreign, &installation).is_err());
+
+        fs::remove_dir_all(base).ok();
     }
 
     #[test]
