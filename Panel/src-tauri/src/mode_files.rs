@@ -51,13 +51,14 @@ fn game_path_value(line: &str) -> Option<&str> {
     Some(value)
 }
 
-fn rewrite_gameinfo(bytes: &[u8], include_bot_runtime: bool) -> ModeResult<Vec<u8>> {
+fn rewrite_gameinfo(bytes: &[u8], include_metamod: bool, include_bot_profile: bool) -> ModeResult<Vec<u8>> {
     let text = std::str::from_utf8(bytes)
         .map_err(|error| format!("gameinfo.gi is not valid UTF-8: {error}"))?;
     let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
     let trailing_newline = text.ends_with('\n');
     let mut output = Vec::new();
-    let mut inserted = false;
+    let mut inserted_metamod = false;
+    let mut inserted_profile = false;
 
     for line in text.lines() {
         if game_path_value(line)
@@ -68,19 +69,21 @@ fn rewrite_gameinfo(bytes: &[u8], include_bot_runtime: bool) -> ModeResult<Vec<u
         {
             continue;
         }
-        if include_bot_runtime
-            && !inserted
-            && game_path_value(line).is_some_and(|value| value.eq_ignore_ascii_case("csgo"))
-        {
+        if game_path_value(line).is_some_and(|value| value.eq_ignore_ascii_case("csgo")) {
             let indent: String = line.chars().take_while(|ch| ch.is_whitespace()).collect();
-            output.push(format!("{indent}Game\tcsgo/addons/metamod"));
-            output.push(format!("{indent}Game\tcsgo/overrides/botprofile.vpk"));
-            inserted = true;
+            if include_metamod && !inserted_metamod {
+                output.push(format!("{indent}Game\tcsgo/addons/metamod"));
+                inserted_metamod = true;
+            }
+            if include_bot_profile && !inserted_profile {
+                output.push(format!("{indent}Game\tcsgo/overrides/botprofile.vpk"));
+                inserted_profile = true;
+            }
         }
         output.push(line.to_string());
     }
 
-    if include_bot_runtime && !inserted {
+    if (include_metamod && !inserted_metamod) || (include_bot_profile && !inserted_profile) {
         return Err("gameinfo.gi has no primary 'Game csgo' SearchPath".into());
     }
 
@@ -101,12 +104,15 @@ pub(crate) fn apply_launch_mode(root: &Path, mode: LaunchMode) -> ModeResult<()>
     }
 
     let active = fs::read(&destination).map_err(|error| error.to_string())?;
-    let online = rewrite_gameinfo(&active, false)?;
-    let bots = rewrite_gameinfo(&online, true)?;
-    let expected = if mode == LaunchMode::Online {
-        &online
-    } else {
-        &bots
+    // Cosmetics preview needs Metamod and CounterStrikeSharp, but the bots stay
+    // vanilla: it is a look-at-your-skins mode, not a bot mode.
+    let online = rewrite_gameinfo(&active, false, false)?;
+    let preview = rewrite_gameinfo(&online, true, false)?;
+    let bots = rewrite_gameinfo(&preview, true, true)?;
+    let expected = match mode {
+        LaunchMode::Online => &online,
+        LaunchMode::Preview => &preview,
+        LaunchMode::Bots => &bots,
     };
     atomic_fs::write_replace(&destination, expected).map_err(|error| error.to_string())?;
     if fs::read(&destination).map_err(|error| error.to_string())? != *expected {
@@ -129,9 +135,15 @@ pub(crate) fn apply_launch_mode(root: &Path, mode: LaunchMode) -> ModeResult<()>
                 .into(),
         );
     }
-    if mode != LaunchMode::Online && !contains_botprofile_search_path(&installed) {
+    if mode == LaunchMode::Bots && !contains_botprofile_search_path(&installed) {
         return Err(
             "Enhanced bots were not enabled because active gameinfo.gi does not mount the selected bot profile"
+                .into(),
+        );
+    }
+    if mode == LaunchMode::Preview && contains_botprofile_search_path(&installed) {
+        return Err(
+            "Cosmetics preview was blocked because active gameinfo.gi still mounts the enhanced bot profile"
                 .into(),
         );
     }
@@ -196,6 +208,12 @@ mod tests {
         assert!(bots.contains("NewDepotSetting"));
         assert!(bots.to_ascii_lowercase().contains("csgo/addons/metamod"));
         assert!(bots.to_ascii_lowercase().contains("csgo/overrides/botprofile.vpk"));
+
+        apply_launch_mode(&root, LaunchMode::Preview).unwrap();
+        let preview = fs::read_to_string(root.join("gameinfo.gi")).unwrap();
+        assert!(preview.contains("NewDepotSetting"));
+        assert!(preview.to_ascii_lowercase().contains("csgo/addons/metamod"));
+        assert!(!preview.to_ascii_lowercase().contains("csgo/overrides/botprofile.vpk"));
 
         apply_launch_mode(&root, LaunchMode::Online).unwrap();
         let online = fs::read_to_string(root.join("gameinfo.gi")).unwrap();
