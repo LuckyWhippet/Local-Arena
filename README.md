@@ -37,7 +37,7 @@
 
 The current `main` branch targets **1.5.0**
 
-Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.378**
+Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.380**
 
 **Guide:** [First installation](#four-step-first-installation) · [Existing installation](#updating-an-existing-installation) · [Launch modes](#choose-the-correct-mode) · [Cosmetics](#player-cosmetic-presets) · [Recovery](#installation-updates-and-recovery) · [Troubleshooting](#troubleshooting)
 
@@ -75,7 +75,7 @@ This continuation fork keeps every Local Arena feature and re-synchronizes it wi
 
 - **Upstream code re-synced** to [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2` (2026-10-08): BotAI, BotAimImprover, BotBuy, BotRandomizer, BotState, NadeSystem, RoundDamageRecap and the BotHider integration are vendored at the exact commits upstream pins, with Local Arena's own modifications re-applied on top
 - **Rush mode support** and **behavior trees** from upstream (`overrides/scripts/bt_default.kv3` + per-difficulty `bt_config.kv3`), plus the updated mode configs (Casual, Competitive, Wingman, DM, FFA, Armsrace, Workshop, 2v2)
-- **CounterStrikeSharp v1.0.378** runtime and API everywhere, including the game-update fixes that build carries
+- **CounterStrikeSharp v1.0.380** runtime and API everywhere, including the game-update fixes that build carries
 - BotBuy and BotAimImprover keep Local Arena's managed/guarded architecture (schema-based target spot writes, generation-guarded buy timers, purchasing gates for PLUS matches, scoped-rifle purchase normalization)
 - NadeSystem grenade catalog stays at `plugins/NadeSystem/grenades` (plugin reads it from `ModuleDirectory` at runtime)
 
@@ -83,7 +83,7 @@ This continuation fork keeps every Local Arena feature and re-synchronizes it wi
 
 **Cosmetics work again after the 2026-10-23 game update.** That update removed the native `SetAttributeByName` entry point that `PlayerKnifeCustomizer` used for every cosmetic write, so knives, gloves, weapon skins, stickers and charms stopped applying while the plugin still reported a clean load. The plugin now calls the still-exported `SetOrAddAttributeValueByName` (verified against `server.dll` through the PE `.pdata` table) and checks each write's return value instead of dropping failures silently.
 
-**The game no longer exits after a map loads.** CounterStrikeSharp 1.0.376 was built for the previous game build; its gamedata signatures no longer matched CS2 1.41.9.2 and the process exited a few seconds after `Map start`. This fork pins 1.0.378, the release that targets that build.
+**The game no longer exits after a map loads.** CounterStrikeSharp always lags the game by one update cycle: 1.0.376 was built for the build before 1.41.9.2, and 1.0.378 for 1.41.9.2, so every game update left its native core resolving a stale function address and exiting a few seconds after `Map start`. This fork now pins 1.0.380, the release that targets CS2 1.41.9.7.
 
 **Online updates actually resolve.** The updater previously read its feed from the archived upstream repository, wrote download URLs pointing at that same repository, and embedded the upstream author's signing key, so it could neither find nor verify an update. The feed now points at this repository and the manifest is signed with a key pair generated for this fork.
 
