@@ -240,8 +240,8 @@ export default function MatchPanel({ onOpenInstallation, onOpenHistory, onOpenLi
           </div>
           <div className="match-config__section">
             <span className="match-label">{t("match.difficulty")}</span>
-            <div className="match-segment match-segment--three">
-              {(["low", "medium", "high"] as const).map((value) => (
+            <div className="match-segment match-segment--four">
+              {(["verylow", "low", "medium", "high"] as const).map((value) => (
                 <button key={value} className={difficulty === value ? "is-active" : ""} onClick={() => setDifficulty(value)}>{t(`match.${value}` as never)}</button>
               ))}
             </div>

@@ -75,7 +75,7 @@
 本延续分支保留 Local Arena 的全部功能，并重新同步了上游增强人机代码：
 
 - **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `61b491bf`（2026-11-14，v1.4.9）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
-- 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/bt_default.kv3` 及 High/Low/Medium 难度 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
+- 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/ai/{rush,retakes}` 行为树及 VeryLow/Low/Medium/High 四档 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
 - **CounterStrikeSharp v1.0.380** 运行时与 API，含该版本针对游戏更新的修复
 - BotBuy、BotAimImprover 保留 Local Arena 的托管/守卫架构（schema 目标点写入、代际守卫购买定时器、PLUS 对局购买门禁、狙击步枪购买规范化）
 - NadeSystem 投掷物目录仍位于 `plugins/NadeSystem/grenades`（插件运行时从 `ModuleDirectory` 读取）

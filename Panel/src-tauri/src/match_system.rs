@@ -217,6 +217,17 @@ fn validate_segment(value: &str, label: &str) -> Result<()> {
     Ok(())
 }
 
+// Directory names keep the vendor casing ("VeryLow") while the UI sends
+// lowercase ids, so the mapping is explicit instead of relying on title_case.
+fn profile_directory(difficulty: &str) -> &'static str {
+    match difficulty {
+        "verylow" => "VeryLow",
+        "low" => "Low",
+        "high" => "High",
+        _ => "Medium",
+    }
+}
+
 fn profile_names(csgo: &Path, difficulty: &str) -> Result<Vec<String>> {
     let path = [
         csgo.join("addons/counterstrikesharp/plugins/PlusMatchCoordinator/profiles").join(difficulty).join("botprofile.db"),
@@ -282,7 +293,7 @@ pub fn prepare(csgo: &Path, payload_root: &Path, input: PrepareMatchInput) -> Re
         .ok_or_else(|| AppError::invalid("The selected map is not in the Plus match pool"))?;
     let map_file = csgo.join("maps").join(&map.required_vpk);
     if !map_file.is_file() { return Err(AppError::invalid(format!("Selected map is missing: {}", map_file.display()))); }
-    if !matches!(input.difficulty.as_str(), "low" | "medium" | "high") { return Err(AppError::invalid("Difficulty must be low, medium, or high")); }
+    if !matches!(input.difficulty.as_str(), "verylow" | "low" | "medium" | "high") { return Err(AppError::invalid("Difficulty must be verylow, low, medium, or high")); }
     if !matches!(input.player_side.as_str(), "random" | "ct" | "t") { return Err(AppError::invalid("Player side must be random, ct, or t")); }
     if !matches!(input.opponent_kind.as_str(), "featured_team" | "random") { return Err(AppError::invalid("Opponent kind must be featured_team or random")); }
     if active_path(csgo).is_file() { return Err(AppError::new("E1702", "match", "A match request is already active")); }
@@ -291,7 +302,7 @@ pub fn prepare(csgo: &Path, payload_root: &Path, input: PrepareMatchInput) -> Re
     let seed = now() ^ id.bytes().fold(0u64, |value, byte| value.wrapping_mul(131).wrapping_add(byte as u64));
     let identities = identity_names(csgo)?;
     let profiles = profiles_with_identities(
-        profile_names(csgo, &title_case(&input.difficulty))?,
+        profile_names(csgo, profile_directory(&input.difficulty))?,
         &identities,
     );
     let selected_team = if input.opponent_kind == "featured_team" {
@@ -324,11 +335,6 @@ pub fn prepare(csgo: &Path, payload_root: &Path, input: PrepareMatchInput) -> Re
     write_json(&directory.join("request.json"), &request)?;
     write_json(&active_path(csgo), &request)?;
     Ok(request)
-}
-
-fn title_case(value: &str) -> String {
-    let mut chars = value.chars();
-    chars.next().map(|first| first.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default()
 }
 
 pub fn active(csgo: &Path) -> Result<Option<MatchSession>> {

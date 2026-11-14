@@ -185,6 +185,20 @@ foreach ($botProfileVpk in $botProfileVpks) {
     }
 }
 
+# Local Arena ships a beginner tier upstream does not have. The release archive
+# only carries Low, Medium and High, so seed the new folder from Medium and then
+# rebuild it from the repository database.
+$veryLowDatabase = Join-Path $repo "overrides\VeryLow\botprofile.db"
+if (Test-Path -LiteralPath $veryLowDatabase -PathType Leaf) {
+    $veryLowDirectory = Join-Path $payload "overrides\VeryLow"
+    New-Item -ItemType Directory -Path $veryLowDirectory -Force | Out-Null
+    $veryLowVpk = Join-Path $veryLowDirectory "botprofile.vpk"
+    if (-not (Test-Path -LiteralPath $veryLowVpk)) {
+        Copy-Item -LiteralPath (Join-Path $payload "overrides\Medium\botprofile.vpk") -Destination $veryLowVpk -Force
+    }
+    ConvertTo-BotProfileOnlyVpk $veryLowVpk -SourceDatabase $veryLowDatabase
+}
+
 $metamodAddons = Join-Path $metamodExtract "addons"
 if (-not (Test-Path -LiteralPath $metamodAddons)) { throw "Metamod archive has no addons payload." }
 Copy-Tree $metamodAddons (Join-Path $payload "addons")

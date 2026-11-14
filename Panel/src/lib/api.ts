@@ -185,7 +185,7 @@ export type UiMemory = {
   entries: Record<string, string>;
 };
 
-export type DifficultyLevel = "Low" | "Medium" | "High";
+export type DifficultyLevel = "VeryLow" | "Low" | "Medium" | "High";
 
 export type DifficultyInfo = {
   current: DifficultyLevel | null;
@@ -501,7 +501,7 @@ export type MatchRequest = {
   created_at_unix: number;
   map_id: string;
   player_side: "ct" | "t";
-  difficulty: "low" | "medium" | "high";
+  difficulty: "verylow" | "low" | "medium" | "high";
   opponent_kind: "featured_team" | "random";
   opponent_team_id: string | null;
   opponent_name: string;
@@ -516,7 +516,7 @@ export type PrepareMatchInput = {
   schema_version: 1;
   map_id: string;
   player_side: "random" | "ct" | "t";
-  difficulty: "low" | "medium" | "high";
+  difficulty: "verylow" | "low" | "medium" | "high";
   opponent_kind: "featured_team" | "random";
   opponent_team_id: string | null;
   record_demo: boolean;

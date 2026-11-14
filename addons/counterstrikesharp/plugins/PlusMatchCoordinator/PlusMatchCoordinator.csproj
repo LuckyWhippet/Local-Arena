@@ -21,6 +21,7 @@
   <ItemGroup>
     <None Include="match_catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\shared\MatchCore\open-rating-3.0-proxy-v1.json" Link="open-rating-3.0-proxy-v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\..\overrides\VeryLow\botprofile.db" Link="profiles\VeryLow\botprofile.db" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\..\overrides\Low\botprofile.db" Link="profiles\Low\botprofile.db" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\..\overrides\Medium\botprofile.db" Link="profiles\Medium\botprofile.db" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\..\overrides\High\botprofile.db" Link="profiles\High\botprofile.db" CopyToOutputDirectory="PreserveNewest" />

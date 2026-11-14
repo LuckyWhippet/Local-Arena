@@ -968,7 +968,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
 fn difficulty_at(root: &Path, running: bool) -> DifficultyInfo {
     let active = root.join("overrides/botprofile.vpk");
     let selected = mode_layout::active_or_disabled(&active);
-    let current = ["Low", "Medium", "High"]
+    let current = ["VeryLow", "Low", "Medium", "High"]
         .iter()
         .find(|name| {
             selected.as_deref().is_some_and(|path| {
@@ -978,7 +978,7 @@ fn difficulty_at(root: &Path, running: bool) -> DifficultyInfo {
         .map(|name| name.to_string());
     DifficultyInfo {
         current,
-        available: vec!["Low".into(), "Medium".into(), "High".into()],
+        available: vec!["VeryLow".into(), "Low".into(), "Medium".into(), "High".into()],
         active_present: selected.is_some(),
         cs2_running: running,
     }
@@ -990,7 +990,7 @@ fn set_difficulty_at(
     level: &str,
     running: bool,
 ) -> Result<DifficultyInfo> {
-    if !["Low", "Medium", "High"].contains(&level) {
+    if !["VeryLow", "Low", "Medium", "High"].contains(&level) {
         return Err(AppError::invalid("Unknown difficulty"));
     }
     let source = root.join(format!("overrides/{level}/botprofile.vpk"));

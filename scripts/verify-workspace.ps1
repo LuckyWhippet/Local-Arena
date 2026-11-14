@@ -127,6 +127,7 @@ else {
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/PlusMatchCoordinator.csproj",
         "addons/counterstrikesharp/plugins/TeamLineupInjector/TeamLineupInjector.csproj",
         "addons/counterstrikesharp/plugins/PlayerKnifeCustomizer/PlayerKnifeCustomizer.csproj",
+        "overrides/VeryLow/botprofile.db",
         "overrides/Low/botprofile.db",
         "overrides/Medium/botprofile.db",
         "overrides/High/botprofile.db"
@@ -468,7 +469,7 @@ if ($botHiderGameData -notmatch '"CServerSideClient::SetName"' -or
     $botHiderGameData -notmatch '"CNetworkGameServer::PackEntities"') {
     Add-Failure "BotHider gamedata no longer contains the v0.3.3 name and identity targets."
 }
-foreach ($difficulty in @("Low", "Medium", "High")) {
+foreach ($difficulty in @("VeryLow", "Low", "Medium", "High")) {
     $profilePath = Join-Path $repo "overrides/$difficulty/botprofile.db"
     $profile = Get-Content -LiteralPath $profilePath -Raw
     Assert-BotProfileContent $profile "$difficulty botprofile.db"
@@ -510,6 +511,7 @@ if ($PackageRoot) {
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/MatchCore.dll",
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/match_catalog.json",
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/open-rating-3.0-proxy-v1.json",
+        "addons/counterstrikesharp/plugins/PlusMatchCoordinator/profiles/VeryLow/botprofile.db",
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/profiles/Low/botprofile.db",
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/profiles/Medium/botprofile.db",
         "addons/counterstrikesharp/plugins/PlusMatchCoordinator/profiles/High/botprofile.db",

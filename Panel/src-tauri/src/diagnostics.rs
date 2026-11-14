@@ -51,6 +51,7 @@ fn runtime_mount_metadata(csgo: &Path) -> serde_json::Value {
     let gameinfo_bytes = fs::read(&gameinfo).ok();
     let vpks = [
         ("active", csgo.join("overrides/botprofile.vpk")),
+        ("verylow", csgo.join("overrides/VeryLow/botprofile.vpk")),
         ("low", csgo.join("overrides/Low/botprofile.vpk")),
         ("medium", csgo.join("overrides/Medium/botprofile.vpk")),
         ("high", csgo.join("overrides/High/botprofile.vpk")),

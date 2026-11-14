@@ -7,6 +7,7 @@ import { useT, type I18nKey } from "../i18n";
 import type { DifficultyLevel } from "../lib/api";
 
 const LEVELS: { value: DifficultyLevel; labelKey: I18nKey; descriptionKey: I18nKey }[] = [
+  { value: "VeryLow", labelKey: "diff.verylow", descriptionKey: "diff.verylowDesc" },
   { value: "Low", labelKey: "diff.low", descriptionKey: "diff.lowDesc" },
   { value: "Medium", labelKey: "diff.medium", descriptionKey: "diff.mediumDesc" },
   { value: "High", labelKey: "diff.high", descriptionKey: "diff.highDesc" },
@@ -24,7 +25,9 @@ export default function DifficultyCard() {
     pending ??
     difficulty?.current ??
     ((config?.difficulty as DifficultyLevel | null) ?? "Medium");
-  const currentLevel = LEVELS.find(({ value }) => value === current) ?? LEVELS[1];
+  const currentLevel = LEVELS.find(({ value }) => value === current)
+    ?? LEVELS.find(({ value }) => value === "Medium")
+    ?? LEVELS[0];
 
   const onChange = async (level: DifficultyLevel) => {
     setPending(level);
