@@ -23,13 +23,13 @@
   },
   "counterStrikeSharp": {
     "repository": "https://github.com/roflmuffin/CounterStrikeSharp",
-    "release": "v1.0.378",
+    "release": "v1.0.380",
     "windowsAsset": {
-      "name": "counterstrikesharp-with-runtime-windows-1.0.378.zip",
-      "url": "https://github.com/roflmuffin/CounterStrikeSharp/releases/download/v1.0.378/counterstrikesharp-with-runtime-windows-1.0.378.zip",
-      "sha256": "6784cc463e8a85e5e70d41c4190601ac4d93295ae7ebdd1e12b6bb92f861ae02"
+      "name": "counterstrikesharp-with-runtime-windows-1.0.380.zip",
+      "url": "https://github.com/roflmuffin/CounterStrikeSharp/releases/download/v1.0.380/counterstrikesharp-with-runtime-windows-1.0.380.zip",
+      "sha256": "9a8881f83054a066f3f105d7f97b7c8a683104a4b5a381ea048d6b9a07c11203"
     },
-    "windowsCoreSha256": "3978f821f9b5724d5108ca414de5386e7570f6ee84c6e8c275742a850d36a98b"
+    "windowsCoreSha256": "11a1ecb91458bf99abaf8dd79a22d7b483414e1a4be6b407e40982de41e0d705"
   },
   "rayTrace": {
     "repository": "https://github.com/FUNPLAY-pro-CS2/Ray-Trace",

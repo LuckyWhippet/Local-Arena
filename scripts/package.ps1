@@ -7,7 +7,7 @@ param(
     [string]$LlvmBin,
     [string]$XwinCache,
     [string]$OutputDirectory,
-    [string]$ReleaseVersion = "1.5.0.0",
+    [string]$ReleaseVersion,
     [string]$MinimumPanelVersion = "1.4.2.4",
     # Repository that hosts the release assets. The updater in the Panel reads
     # latest.json from this same repository, so both must agree.
@@ -18,6 +18,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
+if (-not $ReleaseVersion) {
+    # Derive the four-part version from the Panel manifest so the artifacts can
+    # never drift from the version the build actually embedded: "1.5.0+2"
+    # becomes "1.5.0.2", and "1.5.0-preview.3+0" becomes "1.5.0.0-Preview.3" to
+    # match app_version::display in the Panel.
+    $panelManifest = Get-Content -LiteralPath (Join-Path $repo "Panel\package.json") -Raw | ConvertFrom-Json
+    $rawVersion = [string]$panelManifest.version
+    if ($rawVersion -match '^(?<core>\d+\.\d+\.\d+)-preview\.(?<preview>\d+)\+(?<revision>.+)$') {
+        $ReleaseVersion = "$($Matches.core).$($Matches.revision)-Preview.$($Matches.preview)"
+    }
+    elseif ($rawVersion -match '^(?<core>\d+\.\d+\.\d+)\+(?<revision>.+)$') {
+        $ReleaseVersion = "$($Matches.core).$($Matches.revision)"
+    }
+    else {
+        throw "Panel/package.json version '$rawVersion' cannot be turned into a four-part release version; pass -ReleaseVersion explicitly."
+    }
+    Write-Host "Release version: $ReleaseVersion (derived from Panel/package.json)"
+}
 $displayVersion = $ReleaseVersion.Trim().TrimStart('v', 'V')
 if ($displayVersion -notmatch '^\d+\.\d+\.\d+\.\d+(?:-Preview\.\d+)?$') {
     throw "ReleaseVersion must use four numeric parts with an optional -Preview.N suffix."

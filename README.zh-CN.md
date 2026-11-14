@@ -38,7 +38,7 @@
 
 当前 `main` 分支源码版本为 **1.5.0**
 
-已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.378**
+已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.380**
 
 **教程导航：** [首次安装](#四步完成首次安装) · [已有安装](#更新已有安装) · [启动模式](#选择正确的启动模式) · [玩家饰品](#玩家饰品预设) · [更新恢复](#安装更新与恢复) · [常见问题](#常见问题)
 
@@ -76,7 +76,7 @@
 
 - **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2`（2026-10-08）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
 - 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/bt_default.kv3` 及 High/Low/Medium 难度 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
-- **CounterStrikeSharp v1.0.378** 运行时与 API，含该版本针对游戏更新的修复
+- **CounterStrikeSharp v1.0.380** 运行时与 API，含该版本针对游戏更新的修复
 - BotBuy、BotAimImprover 保留 Local Arena 的托管/守卫架构（schema 目标点写入、代际守卫购买定时器、PLUS 对局购买门禁、狙击步枪购买规范化）
 - NadeSystem 投掷物目录仍位于 `plugins/NadeSystem/grenades`（插件运行时从 `ModuleDirectory` 读取）
 
@@ -84,7 +84,7 @@
 
 **2026-10-23 游戏更新后换肤重新可用。** 那次更新移除了 `PlayerKnifeCustomizer` 写所有饰品所依赖的原生入口 `SetAttributeByName`，导致刀、手套、武器皮肤、贴纸与挂件全部失效，而插件加载日志仍显示正常。现在改为调用仍在导出的 `SetOrAddAttributeValueByName`（已通过 PE `.pdata` 函数表在 `server.dll` 中核实），并检查每次写入的返回值，不再静默丢弃失败。
 
-**进图后游戏不再退出。** CounterStrikeSharp 1.0.376 是针对上一版游戏构建的，其 gamedata 签名与 CS2 1.41.9.2 不再匹配，进程会在 `Map start` 后几秒内退出。本 Fork 钉住 1.0.378，即针对该构建发布的版本。
+**进图后游戏不再退出。** CounterStrikeSharp 总是落后游戏一个更新周期：1.0.376 对的是 1.41.9.2 之前那版，1.0.378 对的是 1.41.9.2，所以每次游戏更新都会让它的原生核心解析到过期的函数地址，进程在 `Map start` 后几秒内退出。本 Fork 现在钉住 1.0.380，即针对 CS2 1.41.9.7 发布的版本。
 
 **在线更新真正可用。** 此前更新器从已归档的上游仓库读取更新源，生成的下载地址也指向该仓库，并内嵌了上游作者的签名公钥，因此既找不到也无法验证更新。现在更新源指向本仓库，清单由为本 Fork 生成的密钥对签名。
 
