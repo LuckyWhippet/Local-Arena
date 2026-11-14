@@ -260,6 +260,16 @@ if (Test-Path -LiteralPath $repoBehaviorTrees) {
     Copy-Item -LiteralPath $repoBehaviorTrees -Destination (Join-Path $payload "overrides\scripts") -Recurse -Force
 }
 
+# mp_bot_ai_bt resolves its argument through the game search paths, and the
+# overrides folder is only mounted as a VPK. The tactic trees have to ship as
+# loose files under scripts/ or the plugin can never load one.
+$repoTacticTrees = Join-Path $repo "overrides\scripts\ai\localarena"
+if (Test-Path -LiteralPath $repoTacticTrees) {
+    $tacticTarget = Join-Path $payload "scripts\ai\localarena"
+    New-Item -ItemType Directory -Force -Path $tacticTarget | Out-Null
+    Copy-Item -Path (Join-Path $repoTacticTrees "*.kv3") -Destination $tacticTarget -Force
+}
+
 $pluginBuild = Join-Path $repo "addons\counterstrikesharp\plugins\PlayerKnifeCustomizer\bin\Release\net10.0"
 $botImplBuild = Join-Path $repo "addons\counterstrikesharp\plugins\BotHiderImpl\bin\Release\net10.0"
 $botApiBuild = Join-Path $repo "addons\counterstrikesharp\shared\BotHiderApi\bin\Release\net10.0"
@@ -273,6 +283,7 @@ $upstreamPluginBuilds = @(
     @{ Name = "NadeSystem"; Framework = "net10.0" },
     @{ Name = "RoundDamageRecap"; Framework = "net10.0" },
     @{ Name = "PlusMatchCoordinator"; Framework = "net10.0" },
+    @{ Name = "PlusTactics"; Framework = "net10.0" },
     @{ Name = "TeamLineupInjector"; Framework = "net10.0" }
 )
 # Every plugin that is built from this repository must replace the copy that

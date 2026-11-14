@@ -1,0 +1,65 @@
+.tactics-page { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
+
+.tactics-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  background: rgba(127, 182, 255, 0.06);
+}
+.tactics-card__head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.tactics-card__head span { display: flex; flex-direction: column; }
+.tactics-card__head strong { font-size: 13px; }
+.tactics-card__head small { font-size: 12px; color: var(--text-secondary); }
+
+.tactics-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+}
+.tactics-row span { display: flex; flex-direction: column; gap: 2px; }
+.tactics-row small { font-size: 12px; color: var(--text-secondary); }
+
+.tactics-block { display: flex; flex-direction: column; gap: 8px; }
+.tactics-block > strong { font-size: 13px; }
+
+.tactics-hint { font-size: 12px; color: var(--text-secondary); margin: 0; word-break: break-all; }
+.tactics-warn { font-size: 12px; color: var(--danger, #d9534f); margin: 6px 0 0; }
+
+.tactics-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tactics-seg button {
+  padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: transparent; border: 0; color: var(--text-secondary);
+}
+.tactics-seg button.is-active { background: rgba(124, 92, 255, 0.16); color: var(--text-primary); }
+
+.tactics-trees { display: flex; flex-direction: column; gap: 6px; }
+.tactics-tree {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+}
+.tactics-tree span { display: flex; flex-direction: column; flex: 1; }
+.tactics-tree b { font-size: 12px; font-weight: 700; }
+.tactics-tree small { font-size: 11px; color: var(--text-secondary); }
+
+.tactics-pick {
+  padding: 4px 10px; font-size: 11px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--text-secondary);
+}
+.tactics-pick.is-active { border-color: rgba(124, 92, 255, 0.6); color: var(--text-primary); background: rgba(124, 92, 255, 0.12); }
+
+.tactics-waypoints { display: flex; flex-direction: column; gap: 4px; }
+.tactics-waypoint {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
+}
+.tactics-waypoint b { flex: 1; font-weight: 600; }
+.tactics-waypoint span { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.tactics-actions {
+  display: flex; align-items: center; gap: 12px;
+  position: sticky; bottom: 0; padding: 10px 0;
+  background: linear-gradient(to top, var(--surface, #fff) 70%, transparent);
+}
+.tactics-save {
+  padding: 8px 18px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--accent, #7c5cff); color: #fff; font-weight: 600; font-size: 13px;
+}
+.tactics-save:disabled { opacity: 0.5; cursor: default; }
+.tactics-saved { font-size: 12px; color: #20b486; }

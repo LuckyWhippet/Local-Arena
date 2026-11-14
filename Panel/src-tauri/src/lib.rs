@@ -23,6 +23,7 @@ mod mode_layout;
 mod online_update;
 mod runtime_state;
 mod steam;
+mod tactics;
 mod update_core;
 use installer::{InstallPlan, InstallTransactionResult, InstallationInspection, RestoreResult};
 use install_checks::InstallCheckReport;
@@ -4141,7 +4142,10 @@ pub fn run() {
             cs2ss_bridge::list_cs2ss_matches_with_stats,
             cs2ss_bridge::get_cs2ss_config, cs2ss_bridge::save_cs2ss_config,
             cs2ss_bridge::get_cs2ss_dm_overview, cs2ss_bridge::delete_cs2ss_matches,
-            cs2ss_bridge::prune_cs2ss_bot_players])
+            cs2ss_bridge::prune_cs2ss_bot_players,
+            cs2ss_bridge::list_cs2ss_tactical_matches, cs2ss_bridge::get_cs2ss_tactical_match,
+            cs2ss_bridge::get_cs2ss_tactical_aggregate, cs2ss_bridge::get_cs2ss_bot_roles,
+            tactics::get_tactics_snapshot, tactics::save_tactics_state, tactics::get_live_match])
         .run(tauri::generate_context!())
         .expect("error while running CS2BotImproverPlus");
 }

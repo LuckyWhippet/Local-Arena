@@ -191,6 +191,7 @@ try {
         @{ Path = "addons\counterstrikesharp\plugins\BotHiderImpl\BotHiderImpl.csproj"; Properties = @() },
         @{ Path = "addons\counterstrikesharp\plugins\TeamLineupInjector\TeamLineupInjector.csproj"; Properties = @() },
         @{ Path = "addons\counterstrikesharp\plugins\PlusRoundRules\PlusRoundRules.csproj"; Properties = @() },
+    @{ Path = "addons\counterstrikesharp\plugins\PlusTactics\PlusTactics.csproj"; Properties = @() },
         @{ Path = "addons\counterstrikesharp\plugins\PlusMatchCoordinator\PlusMatchCoordinator.csproj"; Properties = @() }
     )
     foreach ($project in $pluginProjects) {

@@ -21,6 +21,7 @@ import CommandsPanel from "./panels/CommandsPanel";
 import WeaponPresetsPanel from "./panels/WeaponPresetsPanel";
 import MatchPanel from "./panels/MatchPanel";
 import MatchHistoryPanel from "./panels/MatchHistoryPanel";
+import MatchMode from "./panels/MatchMode";
 import StatsDashboard from "./panels/StatsDashboard";
 import GuideView from "./panels/GuideView";
 import SettingsView from "./panels/settings/SettingsView";
@@ -32,18 +33,19 @@ import appLogo from "./assets/app-logo.png";
 import { stickerFeatureEnabled } from "./lib/stickerEditor";
 import { APP_DISPLAY_VERSION } from "./lib/version";
 import { api } from "./lib/api";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { openExternalUrl } from "./lib/platform";
 import { useAppearance } from "./state/appearance";
 import "./App.css";
 
-type View = "main" | "stickers" | DashboardTarget;
+type View = "main" | "stickers" | "matchMode" | DashboardTarget;
 
-const VIEWS: View[] = ["main", "match", "matchHistory", "stats", "settings", "presets", "commands", "weaponPresets", "stickers", "guide"];
+const VIEWS: View[] = ["main", "match", "matchHistory", "stats", "settings", "presets", "commands", "weaponPresets", "stickers", "guide", "matchMode"];
 const VIEW_KEY = "cs2bi.view";
 const WELCOME_STORY_URL = "https://api.hypcvgm.top/la";
 
 export default function App() {
-  const { error, clearError, ready, config, exportDiagnostics, updateConfig, reportError } = useStore();
+  const { error, clearError, ready, config, directory, exportDiagnostics, updateConfig, reportError } = useStore();
   const { appearance } = useAppearance();
   const t = useT();
   const storyPromptAttempted = useRef(false);
@@ -57,6 +59,34 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(VIEW_KEY, view);
   }, [view]);
+
+  // Match mode: when the telemetry plugin reports a live match, the shell opens
+  // the tactical screens by itself. Leaving it marks that match as dismissed so
+  // the switch does not fight the user every poll.
+  const [liveMatchId, setLiveMatchId] = useState<number | null>(null);
+  const [dismissedMatch, setDismissedMatch] = useState<number | null>(null);
+  const liveCsgo = directory?.valid ? directory.selected ?? "" : "";
+  useEffect(() => {
+    if (!liveCsgo) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const live = await tauriInvoke<{ matchId: number } | null>("get_live_match", { csgo: liveCsgo });
+        if (cancelled) return;
+        setLiveMatchId(live?.matchId ?? null);
+      } catch {
+        /* telemetry.db may not exist yet */
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 5000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [liveCsgo]);
+
+  useEffect(() => {
+    if (!liveMatchId || liveMatchId === dismissedMatch) return;
+    setView(current => (current === "matchMode" ? current : "matchMode"));
+  }, [liveMatchId, dismissedMatch]);
   // Anchor inside the guide requested by the error modal deep link.
   const [guideAnchor, setGuideAnchor] = useState<string | null>(null);
   const clearGuideAnchor = useCallback(() => setGuideAnchor(null), []);
@@ -151,7 +181,9 @@ export default function App() {
         </aside>
 
         <main className="workspace">
-          {view === "settings" ? (
+          {view === "matchMode" ? (
+            <MatchMode csgo={liveCsgo} onExit={() => { setDismissedMatch(liveMatchId); setView("main"); }} />
+          ) : view === "settings" ? (
             <SettingsView />
           ) : view === "presets" ? (
             <PresetsPanel />

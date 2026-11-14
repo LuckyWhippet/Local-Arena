@@ -319,3 +319,130 @@ export interface Cs2ssPlayerMatchStats {
   score?: number;
   durationSeconds?: number;
 }
+
+export interface Cs2ssTacticalMatch {
+  matchId: number;
+  map: string;
+  startedAt: string;
+  roundsPlayed: number | null;
+  aiTree: string | null;
+  roundsWithPaths: number;
+}
+
+export interface Cs2ssTacticalRound {
+  roundNumber: number;
+  winnerTeam: string | null;
+  teamAScore: number;
+  teamBScore: number;
+}
+
+export interface Cs2ssTacticalPath {
+  roundNumber: number;
+  steamId: string;
+  name: string;
+  team: "CT" | "T";
+  sampleHz: number;
+  points: [number, number][];
+}
+
+export interface Cs2ssTacticalGrenade {
+  roundNumber: number;
+  steamId: string;
+  name: string;
+  team: "CT" | "T";
+  kind: string;
+  thrownSeconds: number;
+  detonatedSeconds: number;
+  from: [number, number, number];
+  to: [number, number, number];
+}
+
+export interface Cs2ssTacticalDeath {
+  roundNumber: number;
+  steamId: string;
+  name: string;
+  team: "CT" | "T";
+  atSeconds: number;
+  position: [number, number];
+}
+
+export interface Cs2ssTacticalMatchData {
+  matchId: number;
+  map: string;
+  startedAt: string;
+  aiTree: string | null;
+  rounds: Cs2ssTacticalRound[];
+  paths: Cs2ssTacticalPath[];
+  grenades: Cs2ssTacticalGrenade[];
+  deaths: Cs2ssTacticalDeath[];
+}
+
+export interface Cs2ssTacticalAggregateMatch {
+  matchId: number;
+  startedAt: string;
+  aiTree: string | null;
+  rounds: number;
+}
+
+export interface Cs2ssTacticalAggregatePath {
+  matchId: number;
+  roundNumber: number;
+  aiTree: string | null;
+  winner: string | null;
+  steamId: string;
+  name: string;
+  team: "CT" | "T";
+  sampleHz: number;
+  points: [number, number][];
+}
+
+export interface Cs2ssTacticalAggregate {
+  map: string;
+  matchLimit: number;
+  matches: Cs2ssTacticalAggregateMatch[];
+  paths: Cs2ssTacticalAggregatePath[];
+}
+
+export interface Cs2ssBotRole {
+  name: string;
+  role: string;
+  weaponTemplate: string;
+  skillTemplate: string;
+  aggression: number;
+  teamwork: number;
+}
+
+export interface Cs2ssTacticalAggregateMatch {
+  matchId: number;
+  startedAt: string;
+  aiTree: string | null;
+  rounds: number;
+}
+
+export interface Cs2ssTacticalAggregatePath {
+  matchId: number;
+  roundNumber: number;
+  aiTree: string | null;
+  winner: string | null;
+  steamId: string;
+  name: string;
+  team: "CT" | "T";
+  sampleHz: number;
+  points: [number, number][];
+}
+
+export interface Cs2ssTacticalAggregate {
+  map: string;
+  matchLimit: number;
+  matches: Cs2ssTacticalAggregateMatch[];
+  paths: Cs2ssTacticalAggregatePath[];
+}
+
+export interface Cs2ssBotRole {
+  name: string;
+  role: string;
+  weaponTemplate: string;
+  skillTemplate: string;
+  aggression: number;
+  teamwork: number;
+}
