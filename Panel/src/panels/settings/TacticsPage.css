@@ -52,7 +52,11 @@
 .tactics-waypoint b { flex: 1; font-weight: 600; }
 .tactics-waypoint span { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
-.tactics-actions { display: flex; align-items: center; gap: 12px; }
+.tactics-actions {
+  display: flex; align-items: center; gap: 12px;
+  position: sticky; bottom: 0; padding: 10px 0;
+  background: linear-gradient(to top, var(--surface, #fff) 70%, transparent);
+}
 .tactics-save {
   padding: 8px 18px; border-radius: 10px; border: 0; cursor: pointer;
   background: var(--accent, #7c5cff); color: #fff; font-weight: 600; font-size: 13px;

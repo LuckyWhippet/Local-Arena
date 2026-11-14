@@ -16,6 +16,71 @@ import "./TacticalBoard.css";
 
 const COLORS = ["#7fd4ff", "#6bffb8", "#ffc46b", "#ff8fa3", "#c3a6ff", "#5ee0d0", "#ff9f6b", "#c8ff6b", "#8fb0ff", "#ff6bd6"];
 const WINDOW_SECONDS = 30;
+// The telemetry stores 30 seconds per round; playback subdivides real time, so
+// the head moves continuously instead of jumping from sample to sample.
+const CAPTURE_SECONDS = 30;
+
+// A raw 4 Hz track is jittery: each sample carries the bot position at that
+// instant, so the polyline wobbles along every doorway. A short moving average
+// removes the noise and a Catmull-Rom spline turns the samples into a curve that
+// reads like the broadcast graphics instead of a staircase.
+const SMOOTH_WINDOW = 5;
+
+function smoothPoints(points: [number, number][]): [number, number][] {
+  if (points.length < SMOOTH_WINDOW) return points;
+  const half = Math.floor(SMOOTH_WINDOW / 2);
+  const out: [number, number][] = [];
+  for (let index = 0; index < points.length; index += 1) {
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+    for (let cursor = Math.max(0, index - half); cursor <= Math.min(points.length - 1, index + half); cursor += 1) {
+      sumX += points[cursor][0];
+      sumY += points[cursor][1];
+      count += 1;
+    }
+    out.push([sumX / count, sumY / count]);
+  }
+  return out;
+}
+
+function sliceTrack(points: [number, number][], cursor: number, map: string): [number, number][] {
+  if (points.length < 2) return [];
+  const perSecond = (points.length - 1) / CAPTURE_SECONDS;
+  const exact = Math.max(0, Math.min(points.length - 1, cursor * perSecond));
+  const index = Math.floor(exact);
+  const fraction = exact - index;
+  const out: [number, number][] = [];
+  for (let i = 0; i <= index; i += 1) {
+    const point = radarPoint(map, points[i][0], points[i][1]);
+    if (point) out.push(point);
+  }
+  if (fraction > 0 && index + 1 < points.length) {
+    const from = points[index];
+    const to = points[index + 1];
+    const head = radarPoint(map, from[0] + (to[0] - from[0]) * fraction, from[1] + (to[1] - from[1]) * fraction);
+    if (head) out.push(head);
+  }
+  return out;
+}
+function curvePath(points: [number, number][]): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) return "M " + points[0][0].toFixed(1) + " " + points[0][1].toFixed(1);
+  let d = "M " + points[0][0].toFixed(1) + " " + points[0][1].toFixed(1);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[index - 1] ?? points[index];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[index + 2] ?? p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + ", " + c2x.toFixed(1) + " " + c2y.toFixed(1) + ", " + p2[0].toFixed(1) + " " + p2[1].toFixed(1);
+  }
+  return d;
+}
+
 const GRENADE_ICON: Record<string, string> = { smoke: "烟", flash: "闪", he: "雷", molotov: "火", decoy: "诱" };
 
 // The board asks for 3 or 5 matches; the Rust command clamps to 1..=10 anyway.
@@ -104,6 +169,7 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
   const [cursor, setCursor] = useState(WINDOW_SECONDS);
   const [playing, setPlaying] = useState(false);
   const [windowSeconds, setWindowSeconds] = useState(WINDOW_SECONDS);
+  const [speed, setSpeed] = useState(1);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [singleGroupBy, setSingleGroupBy] = useState<GroupDim>("player");
@@ -158,17 +224,25 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
     return () => { cancelled = true; };
   }, [csgo, matchId, reportError]);
 
+  // Playback follows the display clock: a 100 ms interval quantised the head to
+  // ten steps a second, which read as stutter next to a 60 Hz cursor.
   useEffect(() => {
     if (!playing) return;
-    const timer = window.setInterval(() => {
+    let frame = 0;
+    let previous = performance.now();
+    const step = (now: number) => {
+      const delta = Math.min(0.25, (now - previous) / 1000);
+      previous = now;
       setCursor(value => {
-        const next = value + 0.1;
+        const next = value + delta * speed;
         if (next >= windowSeconds) { setPlaying(false); return windowSeconds; }
         return next;
       });
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [playing]);
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, windowSeconds, speed]);
 
   const maps = useMemo(() => {
     const seen = new Set<string>();
@@ -360,7 +434,7 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
           {single ? (
             <>
               <b>{score}</b>
-              <span className="tac-head__clock">HALF-TIME {cursor.toFixed(0).padStart(2, "0")}s</span>
+              <span className="tac-head__clock">{t("tactical.replay")} {cursor.toFixed(1)}s</span>
             </>
           ) : (
             <>
@@ -420,8 +494,18 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
           </button>
         ))}
 
-        <button className="tac-btn" onClick={() => { setCursor(0); setPlaying(true); }}>{t("tactical.play")}</button>
+        <button className="tac-btn tac-btn--primary" onClick={() => { setCursor(0); setPlaying(true); }}>{t("tactical.play")}</button>
         <button className="tac-btn" onClick={() => setPlaying(false)}>{t("tactical.pause")}</button>
+        <span className="tac-controls__sep" />
+        {[0.5, 1, 2, 4].map(rate => (
+          <button
+            key={rate}
+            className={cls("tac-btn", "tac-btn--sm", speed === rate ? "is-active" : "")}
+            onClick={() => setSpeed(rate)}
+          >
+            {rate}x
+          </button>
+        ))}
         <input
           className="tac-slider"
           type="range" min={0} max={windowSeconds} step={0.1} value={cursor}
@@ -429,6 +513,7 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
         />
         <span className="tac-head__meta">{cursor.toFixed(1)}s / {windowSeconds}s</span>
         <span className="tac-controls__sep" />
+        <span className="tac-controls__label">{t("tactical.window")}</span>
         {[10, 20, 30].map(seconds => (
           <button
             key={seconds}
@@ -471,17 +556,13 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
                     const color = singlePathColor(path, index);
                     const focus = singleGroupBy === "role" ? roleName(path.name) : path.steamId;
                     const dimmed = focusKey !== null && focusKey !== focus;
-                    const limit = Math.max(2, Math.floor(cursor * path.sampleHz));
-                    const screen = path.points
-                      .slice(0, limit)
-                      .map(point => radarPoint(boardMap, point[0], point[1]))
-                      .filter((point): point is [number, number] => point !== null);
+                    const screen = sliceTrack(path.points, cursor, boardMap);
                     if (screen.length < 2) return null;
                     const head = screen[screen.length - 1];
                     return (
                       <g key={path.steamId}>
-                        <polyline
-                          points={screen.map(point => point[0].toFixed(1) + "," + point[1].toFixed(1)).join(" ")}
+                        <path
+                          d={curvePath(smoothPoints(screen))}
                           fill="none" stroke={color} strokeWidth={dimmed ? 2 : 3} strokeLinejoin="round" strokeLinecap="round" opacity={dimmed ? 0.15 : 0.92}
                         />
                         <circle cx={screen[0][0]} cy={screen[0][1]} r={4} fill={color} opacity={0.8} />
@@ -507,18 +588,14 @@ export default function TacticalBoard({ csgo, onBack }: Props) {
                   const groupKey = aggregateGroupKey(path, aggGroupBy, role);
                   const color = groupColors.get(groupKey) ?? "#7fb6ff";
                   const dimmed = focusKey !== null && focusKey !== groupKey;
-                  const limit = Math.max(2, Math.floor(cursor * path.sampleHz));
-                  const screen = path.points
-                    .slice(0, limit)
-                    .map(point => radarPoint(boardMap, point[0], point[1]))
-                    .filter((point): point is [number, number] => point !== null);
+                  const screen = sliceTrack(path.points, cursor, boardMap);
                   if (screen.length < 2) return null;
                   const head = screen[screen.length - 1];
                   return (
                     <g key={path.matchId + "-" + path.roundNumber + "-" + path.steamId} opacity={dimmed ? 0.1 : 0.55}>
                       <title>{path.name + " · R" + (path.roundNumber + 1) + " · #" + path.matchId}</title>
-                      <polyline
-                        points={screen.map(point => point[0].toFixed(1) + "," + point[1].toFixed(1)).join(" ")}
+                      <path
+                        d={curvePath(smoothPoints(screen))}
                         fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
                       />
                       <circle cx={head[0]} cy={head[1]} r={3.5} fill={color} />

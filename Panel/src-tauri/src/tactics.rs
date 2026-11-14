@@ -85,6 +85,16 @@ pub struct TacticsSnapshot {
     pub tree_dir_exists: bool,
 }
 
+/// Windows canonicalize returns an extended-length path (`\\?\D:\...`), which
+/// is unreadable in the UI; the prefix carries no meaning for a user.
+fn plain_display(path: &Path) -> String {
+    let text = path.display().to_string();
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) => rest.to_string(),
+        None => text,
+    }
+}
+
 fn tactics_path(csgo: &Path) -> PathBuf {
     csgo.join(".csbip").join("tactics.json")
 }
@@ -138,7 +148,7 @@ pub fn get_tactics_snapshot(csgo: String) -> Result<TacticsSnapshot> {
         state,
         trees: list_trees(&root),
         active: read_active(&root),
-        config_path: path.display().to_string(),
+        config_path: plain_display(&path),
         tree_dir_exists: root.join(TREE_DIR).is_dir(),
     })
 }

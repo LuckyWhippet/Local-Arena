@@ -96,6 +96,10 @@ export default function TacticsPage() {
       <section className="tactics-block">
         <strong>{t("tactics.pool")}</strong>
         <small className="tactics-hint">{t("tactics.poolDesc")}</small>
+        <small className="tactics-hint">{t("tactics.selectedCount", { count: state.pool.length })}</small>
+        {state.enabled && state.pool.length === 0 && (
+          <p className="tactics-warn">{t("tactics.emptyPool")}</p>
+        )}
         <div className="tactics-trees">
           {snapshot.trees.map(tree => (
             <label key={tree.id} className="tactics-tree">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Settings2 } from "lucide-react";
+import { BarChart3, ChevronRight, Settings2 } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart, Cell } from "recharts";
 import { api } from "../lib/api";
 import type { Cs2ssOverviewResponse, Cs2ssPlayerDetailResponse, Cs2ssDmOverview, Cs2ssMatchWithStats } from "../data/cs2ssTypes";
@@ -183,12 +183,16 @@ const [o, ms] = await Promise.all([api.getCs2ssOverview(csgo), api.listCs2ssMatc
     <div className="stats-panel">
       <div className="stats-board-header">
         <h1>{t("stats.globalHistory")}</h1>
-        <div className="stats-mode-switch">
-          <button className={mode === "competitive" ? "active" : ""} onClick={() => setMode("competitive")}>{t("stats.competitive")}<small>{comp.length}</small></button>
-          <button className={mode === "deathmatch" ? "active" : ""} onClick={() => setMode("deathmatch")}>{t("stats.deathmatch")}<small>{dms.length}</small></button>
-          <button className="stats-mode-switch__all" onClick={() => setSub("history")}>{t("stats.allMatches")} →</button>
-          <button className="stats-mode-switch__all" onClick={() => setSub("tactical")}>{t("tactical.title")} →</button>
-          <button className="stats-mode-switch__settings" onClick={openConfig} title={t("stats.editSteamId")} aria-label={t("stats.editSteamId")}><Settings2 size={16} /></button>
+        <div className="stats-head-actions">
+          <div className="stats-mode-switch">
+            <button className={mode === "competitive" ? "active" : ""} onClick={() => setMode("competitive")}>{t("stats.competitive")}<small>{comp.length}</small></button>
+            <button className={mode === "deathmatch" ? "active" : ""} onClick={() => setMode("deathmatch")}>{t("stats.deathmatch")}<small>{dms.length}</small></button>
+            <button className="stats-mode-switch__settings" onClick={openConfig} title={t("stats.editSteamId")} aria-label={t("stats.editSteamId")}><Settings2 size={16} /></button>
+          </div>
+          <div className="stats-nav">
+            <button className="stats-nav__link" onClick={() => setSub("history")}>{t("stats.allMatches")}<ChevronRight size={14} /></button>
+            <button className="stats-nav__link" onClick={() => setSub("tactical")}>{t("tactical.title")}<ChevronRight size={14} /></button>
+          </div>
         </div>
       </div>
 
