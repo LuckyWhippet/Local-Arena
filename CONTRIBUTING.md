@@ -34,3 +34,15 @@ under the repository's ignored `.cache` or `Panel/src-tauri/target-msvc` directo
 
 Before publishing, run `scripts/package.ps1`, inspect the ZIP file list, verify `SHA256SUMS.txt`, and smoke-test both
 Enhanced Bots and Online Mode on a disposable CS2 installation copy.
+
+Then `scripts/publish-release.ps1` turns that output into a release: it finds or creates the release for the version recorded in
+`latest.json`, uploads the three ZIPs plus `latest.json`, its signature, and `SHA256SUMS.txt`, and updates the repository
+description and topics. It never creates tags, so the tag has to be pushed first. The token needs `Contents: write`, and
+`Administration: write` while the metadata update runs:
+
+```powershell
+$env:GITHUB_TOKEN = "<token>"
+.scriptspublish-release.ps1
+```
+
+Pass `-SkipRepositoryMetadata` to publish only the release assets.
