@@ -257,8 +257,8 @@ public partial class BotState
         }
     }
 
-    // Picks the Bot's main gun: a primary if owned, else a secondary. False
-    // when the Bot owns neither.
+    // Picks a loaded primary if the Bot owns one, else a loaded secondary.
+    // False when the Bot owns neither, or neither still has a round.
     private static bool GetReequipWeapon(CCSPlayerPawn pawn, out int weaponDefIndex)
     {
         weaponDefIndex = -1;
@@ -276,7 +276,7 @@ public partial class BotState
             if (weaponData == null) continue;
 
             int defIndex = weapon.AttributeManager.Item.ItemDefinitionIndex;
-            if (defIndex <= 0) continue;
+            if (defIndex <= 0 || !WeaponHasAmmo(weapon)) continue;
 
             if (weaponData.GearSlot == gear_slot_t.GEAR_SLOT_RIFLE)
             {
@@ -293,6 +293,16 @@ public partial class BotState
 
         weaponDefIndex = secondaryDefIndex;
         return weaponDefIndex >= 0;
+    }
+
+    // A gun still has a round in either clip or in reserve.
+    private static bool WeaponHasAmmo(CCSWeaponBase weapon)
+    {
+        if (weapon.Clip1 > 0 || weapon.Clip2 > 0)
+            return true;
+
+        var reserve = weapon.ReserveAmmo;
+        return reserve.Length > 0 && reserve[0] > 0;
     }
     //---------------------------------------------------------------------------------------
     // Reports whether the Bot's active weapon is currently reloading

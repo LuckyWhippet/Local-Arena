@@ -12,9 +12,12 @@ public partial class BotState
         ProcessFlashbangAvoidance();
         ExpireReveals(Server.CurrentTime);
 
-        foreach (var player in Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller"))
+        // Server.MaxPlayers can cache the main menu's one-player limit.
+        int maxPlayers = NativeAPI.GetMaxClients();
+        for (int slot = 0; slot < maxPlayers; slot++)
         {
-            if (!player.IsValid || !player.IsBot)
+            var player = Utilities.GetPlayerFromSlot(slot);
+            if (player == null || !player.IsValid || !player.IsBot)
                 continue;
 
             var pawn = player.PlayerPawn.Value;

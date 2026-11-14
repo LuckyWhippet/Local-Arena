@@ -36,9 +36,9 @@
 
 <div align="center">
 
-当前 `main` 分支源码版本为 **1.5.0**
+当前 `main` 分支源码版本为 **1.6.0**
 
-已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2`（2026-10-08）· CounterStrikeSharp **v1.0.380**
+已同步上游 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `61b491bf`（2026-11-14，v1.4.9）· CounterStrikeSharp **v1.0.380**
 
 **教程导航：** [首次安装](#四步完成首次安装) · [已有安装](#更新已有安装) · [启动模式](#选择正确的启动模式) · [玩家饰品](#玩家饰品预设) · [更新恢复](#安装更新与恢复) · [常见问题](#常见问题)
 
@@ -74,7 +74,7 @@
 
 本延续分支保留 Local Arena 的全部功能，并重新同步了上游增强人机代码：
 
-- **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2`（2026-10-08）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
+- **上游代码已同步**到 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `61b491bf`（2026-11-14，v1.4.9）：BotAI、BotAimImprover、BotBuy、BotRandomizer、BotState、NadeSystem、RoundDamageRecap 与 BotHider 集成均按上游钉住的提交版本 vendored 入库，Local Arena 的自身改动在其上重放
 - 来自上游的 **Rush 模式支持**与**行为树**（`overrides/scripts/bt_default.kv3` 及 High/Low/Medium 难度 `bt_config.kv3`），以及更新的模式配置（休闲、竞技、双人、死斗、FFA、军备竞赛、社区服、2v2）
 - **CounterStrikeSharp v1.0.380** 运行时与 API，含该版本针对游戏更新的修复
 - BotBuy、BotAimImprover 保留 Local Arena 的托管/守卫架构（schema 目标点写入、代际守卫购买定时器、PLUS 对局购买门禁、狙击步枪购买规范化）

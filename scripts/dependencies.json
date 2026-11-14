@@ -2,8 +2,17 @@
   "upstream": {
     "repository": "https://github.com/ed0ard/CS2-Bot-Improver",
     "baseCommit": "72adfc283faad3b8fbe974533d55c49d48691333",
-    "sourceCommit": "72adfc283faad3b8fbe974533d55c49d48691333",
-    "vendoredSnapshot": "vendor-sync-2026-10-08",
+    "sourceCommit": "61b491bf472b71d37685259dcff81842b86c02f2",
+    "vendoredSnapshot": "vendor-sync-2026-11-14",
+    "sourceRelease": "v1.4.9",
+    "vendoredSources": {
+      "botAI": "320a8fd3cd6bca69fd1ec511fe0c3e45b4d42ccc",
+      "botAimImprover": "c5a2e0f402f151336c820b7efc1b895aa087a953",
+      "botBuy": "9898a9d9eff9bf88aa59857a0d456b7ea8b77653",
+      "botRandomizer": "d713b2a6be1d7c2e6c807d67b4bc8af0a1d614a7",
+      "botState": "ae672d36ab3ba0717bc921187d0aa44786b8a864",
+      "nadeSystem": "7605f272d0500a7bad5b6294555485c7721a40da"
+    },
     "release": "v1.4.3",
     "windowsAsset": {
       "name": "CS2BotImprover.zip",

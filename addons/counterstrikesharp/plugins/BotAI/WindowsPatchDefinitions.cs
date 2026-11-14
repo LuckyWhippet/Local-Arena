@@ -211,8 +211,9 @@ internal static class WindowsPatchDefinitions
 
         // wildcard the comiss register byte (xmm6/xmm7 varies by build) 
         // and the jbe displacement. Anchored on movss xmm0,[rax+0xc]; comiss; jbe.
+        // Include the following CanSeeSniper check to exclude unrelated float comparisons.
         ["Vision_ApproachBody_SkipSkillCheck"] = (
-            signature: "F3 0F 10 40 0C 0F 2F ? 76 ?",
+            signature: "F3 0F 10 40 0C 0F 2F ? 76 ? 80 BF ? 5C 00 00 00 74 ?",
             patch: "90 90",
             expectedOriginal: "76 ?",
             patchOffset: 8
@@ -297,8 +298,8 @@ internal static class WindowsPatchDefinitions
         //  directly to the planted site instead of random searching.
         ["TBot_BombsiteSearch_UseKnownPlantedSite"] = (
             signature: "48 8B 8E ? ? 00 00 E8 ? ? ? ? 48 8B CB E8 ? ? ? ? 4C 8B 05 ? ? ? ? 85 C0",
-            patch: "E8 30 57 F9 FF",
-            expectedOriginal: "E8 40 51 F9 FF",
+            patch: "E8 10 57 F9 FF",
+            expectedOriginal: "E8 20 51 F9 FF",
             patchOffset: 15
         ),
 

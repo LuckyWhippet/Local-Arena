@@ -103,7 +103,7 @@ public partial class NadeSystemPlugin : BasePlugin
                     float lx = g.LandingPosition.X, ly = g.LandingPosition.Y, lz = g.LandingPosition.Z;
                     bool tooClose = _cooldowns
                         .Where(c => c.ExpiresAt > Server.CurrentTime)
-                        .Select(c => _mapNades.FirstOrDefault(d => d.Id == c.GrenadeId))
+                        .Select(c => FindMapGrenade(c.GrenadeId))
                         .Any(d => d != null
                                && string.Equals(d.GrenadeType, "smoke", StringComparison.OrdinalIgnoreCase)
                                && Dist3D(lx, ly, lz, d.LandingPosition.X, d.LandingPosition.Y, d.LandingPosition.Z) < 100f);
@@ -148,8 +148,7 @@ public partial class NadeSystemPlugin : BasePlugin
                             bool intoSmoke = _cooldowns.Any(cd =>
                             {
                                 if (cd.ExpiresAt <= now) return false;
-                                var s = _mapNades.FirstOrDefault(d => d.Id == cd.GrenadeId
-                                    && string.Equals(d.GrenadeType, "smoke", StringComparison.OrdinalIgnoreCase));
+                                var s = FindMapGrenade(cd.GrenadeId, "smoke");
                                 if (s == null) return false;
                                 float ddx = lx - s.LandingPosition.X;
                                 float ddy = ly - s.LandingPosition.Y;
@@ -205,8 +204,7 @@ public partial class NadeSystemPlugin : BasePlugin
                 float viewOffsetZLeave = 64f;
                 currentInZone.RemoveWhere(gid =>
                 {
-                    var rec = mapNades.FirstOrDefault(x => x.Id == gid
-                        && string.Equals(x.GrenadeType, "flash", StringComparison.OrdinalIgnoreCase));
+                    var rec = FindMapGrenade(gid, "flash");
                     if (rec == null) return true;
                     float dx  = pos.X - rec.ZoneX;
                     float dy  = pos.Y - rec.ZoneY;

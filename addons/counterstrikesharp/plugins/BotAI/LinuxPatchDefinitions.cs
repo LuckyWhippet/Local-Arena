@@ -6,7 +6,7 @@ internal static class LinuxPatchDefinitions
         new Dictionary<string, (string signature, string patch, string expectedOriginal, int patchOffset)>()
         {
         // Verified against libserver.so SHA256:
-        // d81faffb3e3a5f2001932b3b55a96c4ac05c2ed4b99702b06fc416b6e9bb5300.
+        // ac63a1513aac0d7716aa7920d5ee8728feb9953600aea79f3c2c92780ba8eae7.
         // Keep instruction/field context fixed; wildcard RIP-relative addresses and branch targets.
         // Historical keys are retained; comments describe the verified native behavior.
 
@@ -260,8 +260,7 @@ internal static class LinuxPatchDefinitions
             patchOffset:      13
         ),
 
-        // InvestigateNoiseState::OnEnter: bypass the SELF_DEFENSE disposition
-        // gate in the noise-response path. The old signature matched chicken AI.
+        // AttendCurrentNoise: bypass the noise-priority gate, not disposition.
         ["InvestigateNoise_SkipSelfDefenseCheck"] = (
             signature:        "83 BB F0 52 00 00 02 0F 84 ? ? ? ? F3 0F 10 83 D8 52 00 00 31 C0 66 0F EF DB",
             patch:            "90 90 90 90 90 90",
@@ -277,28 +276,21 @@ internal static class LinuxPatchDefinitions
             patchOffset:      7
         ),
 
-        // Idle/bomb-search fallback: GetNextBombsiteToSearch() -> GetPlantedBombsite().
-        // Deliberately left hardcoded on BOTH sides (values from the verified binary
-        // above): the call retargets one game function to a sibling function,
-        // so there is nothing at the patch site to compute the new displacement from.
-        // Hardcoding expectedOriginal keeps it fail-safe — on build drift validation
-        // stops matching and the patch is skipped cleanly rather than writing a stale
-        // call target. A future drift-proof version would resolve GetPlantedBombsite
-        // via its own signature and compute the displacement like the cave pairs.
+        // Idle fallback: GetNextBombsiteToSearch() -> GetPlantedBombsite().
+        // Build-specific rel32: keep expectedOriginal exact and recheck both callees.
         ["TBot_BombsiteSearch_UseKnownPlantedSite"] = (
-            signature:        "48 8B BB 00 5E 00 00 E8 ? ? ? ? 4C 89 F7 E8 AC B4 F6 FF 49 8B 3C 24 31 F6 85 C0 78 ? 3B 87 A0 21 00 00 7D ?",
-            patch:            "E8 BC B1 F6 FF",   // call GetPlantedBombsite
-            expectedOriginal: "E8 AC B4 F6 FF",   // call GetNextBombsiteToSearch
+            signature:        "48 8B BB 00 5E 00 00 E8 ? ? ? ? 4C 89 F7 E8 ? ? ? ?",
+            patch:            "E8 3C B1 F6 FF",   // call GetPlantedBombsite
+            expectedOriginal: "E8 2C B4 F6 FF",   // call GetNextBombsiteToSearch
             patchOffset:      15
         ),
 
-        // OnBombPickedUp: force the pathfind/hear gate to enter the tracking path.
-        // 1.8.9: opcode-only rewrite (jne -> jmp); rel8 displacement left untouched.
+        // OnBombPickedUp: remove only the CT pickup hearing-distance gate.
         ["BombPickup_CT_GlobalHearRange"] = (
-            signature:        "E8 ? ? ? ? 31 C9 BA 02 00 00 00 48 89 DF F3 0F 10 05 ? ? ? ? 48 89 C6 E8 ? ? ? ? 84 C0 75 84",
-            patch:            "EB",
-            expectedOriginal: "75",
-            patchOffset:      33
+            signature:        "F3 0F 58 C2 F3 0F 58 C1 F3 0F 10 0D ? ? ? ? 0F 2F C8 0F 86 ? ? ? ? 48 8B 05 ? ? ? ?",
+            patch:            "90 90 90 90 90 90",
+            expectedOriginal: "0F 86 ? ? ? ?",
+            patchOffset:      19
         ),
 
         // OnBombBeep: ignore the 1500-unit hear range and update the bombsite from any distance.

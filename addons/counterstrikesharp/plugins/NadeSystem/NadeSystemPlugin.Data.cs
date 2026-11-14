@@ -68,16 +68,22 @@ public partial class NadeSystemPlugin : BasePlugin
         _mapNades = _db
             .Where(g => string.Equals(g.MapName, Server.MapName, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        BuildGrenadeZoneGrid();
+        BuildGrenadeIndexes();
         Server.PrintToConsole($"[NadeSystem] Loaded {loaded} grenades from {DataDir}");
     }
 
-    // * Builds ordered grid buckets for every trigger zone overlapping each cell
-    private void BuildGrenadeZoneGrid()
+    // * Rebuilds record lookups and ordered trigger-zone buckets for the active map
+    private void BuildGrenadeIndexes()
     {
+        _mapNadesById.Clear();
         _grenadeZoneGrid.Clear();
         foreach (var grenade in _mapNades)
         {
+            // Preserve FirstOrDefault order, including IDs shared by different types.
+            // GrenadeType has already been normalized by LoadDb.
+            _mapNadesById.TryAdd((grenade.Id, null), grenade);
+            _mapNadesById.TryAdd((grenade.Id, grenade.GrenadeType), grenade);
+
             float radius = grenade.GrenadeType == "decoy" ? 200f : grenade.ZoneRadius;
             var minCell = GetGrenadeZoneGridCell(grenade.ZoneX - radius, grenade.ZoneY - radius);
             var maxCell = GetGrenadeZoneGridCell(grenade.ZoneX + radius, grenade.ZoneY + radius);
@@ -97,6 +103,9 @@ public partial class NadeSystemPlugin : BasePlugin
             }
         }
     }
+
+    private GrenadeData? FindMapGrenade(string id, string? type = null)
+        => _mapNadesById.GetValueOrDefault((id, type));
 
     // * Converts world coordinates to a stable grid key including negative coordinates
     private static (int X, int Y) GetGrenadeZoneGridCell(float x, float y)

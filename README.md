@@ -35,9 +35,9 @@
 
 <div align="center">
 
-The current `main` branch targets **1.5.0**
+The current `main` branch targets **1.6.0**
 
-Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `72adfc2` (2026-10-08) · CounterStrikeSharp **v1.0.380**
+Synced with upstream [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) @ `61b491bf` (2026-11-14, v1.4.9) · CounterStrikeSharp **v1.0.380**
 
 **Guide:** [First installation](#four-step-first-installation) · [Existing installation](#updating-an-existing-installation) · [Launch modes](#choose-the-correct-mode) · [Cosmetics](#player-cosmetic-presets) · [Recovery](#installation-updates-and-recovery) · [Troubleshooting](#troubleshooting)
 
@@ -73,7 +73,7 @@ Beginning with the next version, Local Arena will adopt a new UI design language
 
 This continuation fork keeps every Local Arena feature and re-synchronizes it with the upstream enhanced-bot codebase:
 
-- **Upstream code re-synced** to [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `72adfc2` (2026-10-08): BotAI, BotAimImprover, BotBuy, BotRandomizer, BotState, NadeSystem, RoundDamageRecap and the BotHider integration are vendored at the exact commits upstream pins, with Local Arena's own modifications re-applied on top
+- **Upstream code re-synced** to [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) `61b491bf` (2026-11-14, release v1.4.9): BotAI, BotAimImprover, BotBuy, BotRandomizer, BotState, NadeSystem, RoundDamageRecap and the BotHider integration are vendored at the exact commits upstream pins, with Local Arena's own modifications re-applied on top
 - **Rush mode support** and **behavior trees** from upstream (`overrides/scripts/bt_default.kv3` + per-difficulty `bt_config.kv3`), plus the updated mode configs (Casual, Competitive, Wingman, DM, FFA, Armsrace, Workshop, 2v2)
 - **CounterStrikeSharp v1.0.380** runtime and API everywhere, including the game-update fixes that build carries
 - BotBuy and BotAimImprover keep Local Arena's managed/guarded architecture (schema-based target spot writes, generation-guarded buy timers, purchasing gates for PLUS matches, scoped-rifle purchase normalization)

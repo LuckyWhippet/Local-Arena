@@ -14,7 +14,7 @@ public partial class BotState
     private readonly Dictionary<int, float> _doorEventCooldown = new();
 
     private readonly Dictionary<int, float> _stuckStartTime = new();
-    private readonly Dictionary<int, Vector> _stuckStartPos = new();
+    private readonly Dictionary<int, (float X, float Y)> _stuckStartPos = new();
     private readonly Dictionary<int, bool> _stuckJumpDone = new();
     private readonly Dictionary<int, int> _stuckJumpCount = new();
     private readonly Dictionary<int, float> _stuckMaxSpeed = new();
@@ -180,7 +180,7 @@ public partial class BotState
             if (!_stuckStartTime.ContainsKey(idx))
             {
                 _stuckStartTime[idx] = now;
-                _stuckStartPos[idx] = new Vector(curPos.X, curPos.Y, curPos.Z);
+                _stuckStartPos[idx] = (curPos.X, curPos.Y);
                 _stuckJumpDone[idx] = false;
                 _stuckMaxSpeed[idx] = 0f;
             }
@@ -189,7 +189,7 @@ public partial class BotState
                 _stuckMaxSpeed[idx] = speed2D;
 
             float elapsed = now - _stuckStartTime.GetValueOrDefault(idx);
-            var sp = _stuckStartPos.GetValueOrDefault(idx, new Vector(curPos.X, curPos.Y, curPos.Z));
+            var sp = _stuckStartPos.GetValueOrDefault(idx, (curPos.X, curPos.Y));
             float dist2D = MathF.Sqrt(
                 MathF.Pow(curPos.X - sp.X, 2) +
                 MathF.Pow(curPos.Y - sp.Y, 2));
@@ -229,7 +229,7 @@ public partial class BotState
 
                 // Reset
                 _stuckStartTime[idx] = now;
-                _stuckStartPos[idx] = new Vector(curPos.X, curPos.Y, curPos.Z);
+                _stuckStartPos[idx] = (curPos.X, curPos.Y);
                 _stuckMaxSpeed[idx] = 0f;
             }
         }

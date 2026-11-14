@@ -93,9 +93,7 @@ public partial class NadeSystemPlugin : BasePlugin
                 foreach (var cd in _cooldowns)
                 {
                     if (cd.ExpiresAt <= now) continue;
-                    var smokeRecord = _mapNades.FirstOrDefault(d =>
-                        d.Id == cd.GrenadeId &&
-                        string.Equals(d.GrenadeType, "smoke", StringComparison.OrdinalIgnoreCase));
+                    var smokeRecord = FindMapGrenade(cd.GrenadeId, "smoke");
                     if (smokeRecord == null) continue;
                     float sx = smokeRecord.LandingPosition.X;
                     float sy = smokeRecord.LandingPosition.Y;
@@ -142,7 +140,7 @@ public partial class NadeSystemPlugin : BasePlugin
             //  Smoke Overlap Check < 250u
             bool tooClose = _cooldowns
                 .Where(c => c.ExpiresAt > Server.CurrentTime)
-                .Select(c => _mapNades.FirstOrDefault(d => d.Id == c.GrenadeId))
+                .Select(c => FindMapGrenade(c.GrenadeId))
                 .Any(d => d != null
                        && string.Equals(d.GrenadeType, "smoke", StringComparison.OrdinalIgnoreCase)
                        && Dist3D(lx, ly, lz, d.LandingPosition.X, d.LandingPosition.Y, d.LandingPosition.Z) < 250f);

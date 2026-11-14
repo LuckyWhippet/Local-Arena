@@ -20,6 +20,9 @@ public partial class BotState
 
     // Flashbang avoidance
     private Vector? _scratchEye;
+    private readonly List<CHandle<CBaseEntity>> _flashProjectiles = new();
+    private readonly List<CHandle<CCSPlayerController>> _flashControllers = new();
+    private bool _flashEntitiesDirty = true;
     private MemoryFunctionVoid<nint, float, float, float>? _botBlindFunction;
 
     private const float FlashFuseSeconds = 1.5f;        // CS2 flashbang fuse
@@ -39,6 +42,8 @@ public partial class BotState
     }
     private readonly Dictionary<(int bot, uint flash), FlashDecision> _flashDecisions = new();
     private readonly HashSet<(int bot, uint flash)> _flashRejectLogged = new();
+    // While this window is open, later flashes are not rolled and cannot clear the effect for this bot.
+    private readonly Dictionary<int, float> _flashBlindUntil = new();
 
     // Debug logging (toggle with `css_botstate_flashdebug`)
     private bool _debugFlash = false;
@@ -111,7 +116,8 @@ public partial class BotState
             isImmune = false;
         }
 
-        if (isImmune)
+        bool committed = InCommittedBlind(bidx, matchNow);
+        if (isImmune && !committed)
         {
             @event.BlindDuration = 0f;
             var pawn = player.PlayerPawn?.Value;
@@ -130,6 +136,12 @@ public partial class BotState
                 flashMaxAlpha = 0f;
             }
         }
+        else if (!isImmune && origBlind > 0f)
+        {
+            float until = matchNow + origBlind;
+            if (!_flashBlindUntil.TryGetValue(bidx, out float current) || until > current)
+                _flashBlindUntil[bidx] = until;
+        }
 
         if (_debugFlash)
         {
@@ -143,8 +155,10 @@ public partial class BotState
             {
                 detail = "no tracked flash (out of FOV / occluded entire flight)";
             }
+            if (isImmune && committed)
+                detail += "; kept prior blind";
             BroadcastDebug(
-                $"[Smarter-Bot/Flash] blind event bot={player.PlayerName} immune={isImmune} origDur={origBlind:F2}s ({detail})");
+                $"[Smarter-Bot/Flash] blind event bot={player.PlayerName} immune={isImmune && !committed} origDur={origBlind:F2}s ({detail})");
         }
 
         return HookResult.Continue;
@@ -238,6 +252,9 @@ public partial class BotState
                 return HookResult.Continue;
 
             int botIndex = (int)player.Index;
+            if (InCommittedBlind(botIndex, Server.CurrentTime))
+                return HookResult.Continue;
+
             if (!TryMatchFlashDecision(
                     botIndex,
                     Server.CurrentTime,
@@ -284,6 +301,39 @@ public partial class BotState
         return null;
     }
     //---------------------------------------------------------------------------------------
+    // Entity lifecycle notifications only invalidate discovery; positions and visibility
+    // are still read every tick. Rebuild in native entity-list order to preserve roll order.
+    private void InvalidateFlashEntities(CEntityInstance entity) => _flashEntitiesDirty = true;
+
+    private void ClearFlashEntities()
+    {
+        _flashProjectiles.Clear();
+        _flashControllers.Clear();
+        _flashEntitiesDirty = true;
+    }
+
+    private void RefreshFlashEntities()
+    {
+        if (!_flashEntitiesDirty) return;
+
+        _flashProjectiles.Clear();
+        foreach (var entity in Utilities.FindAllEntitiesByDesignerName<CBaseEntity>("flashbang_projectile"))
+        {
+            if (entity.IsValid)
+                _flashProjectiles.Add(new CHandle<CBaseEntity>(entity.EntityHandle.Raw));
+        }
+        _flashControllers.Clear();
+        if (_flashProjectiles.Count > 0)
+        {
+            foreach (var controller in Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller"))
+            {
+                if (controller.IsValid)
+                    _flashControllers.Add(new CHandle<CCSPlayerController>(controller.EntityHandle.Raw));
+            }
+        }
+        _flashEntitiesDirty = false;
+    }
+
     // Pre-rolls flash avoidance when the bot first sees the projectile through FOV and LOS
     // The native blind hook reads the result before OnPlayerBlind consumes it
     private void ProcessFlashbangAvoidance()
@@ -292,10 +342,12 @@ public partial class BotState
 
         float now = Server.CurrentTime;
 
+        RefreshFlashEntities();
         var live = new List<(uint idx, Vector pos, float detonateAt)>();
-        foreach (var ent in Utilities.FindAllEntitiesByDesignerName<CBaseEntity>("flashbang_projectile"))
+        foreach (var handle in _flashProjectiles)
         {
-            if (!ent.IsValid) continue;
+            var ent = handle.Value;
+            if (ent == null || !ent.IsValid) continue;
             var pos = ent.AbsOrigin;
             if (pos == null) continue;
 
@@ -344,15 +396,19 @@ public partial class BotState
 
         if (live.Count == 0) return;
 
-        foreach (var bot in Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller"))
+        foreach (var handle in _flashControllers)
         {
-            if (!bot.IsValid || !bot.IsBot) continue;
+            var bot = handle.Value;
+            if (bot == null || !bot.IsValid || !bot.IsBot) continue;
             if (bot.HasBeenControlledByPlayerThisRound) continue;
 
             var pawn = bot.PlayerPawn?.Value;
             if (pawn == null || !pawn.IsValid || pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
 
             int bidx = (int)bot.Index;
+            if (InCommittedBlind(bidx, now))
+                continue;
+
             if (!_flashRolledByBot.TryGetValue(bidx, out var rolled))
             {
                 rolled = new HashSet<uint>();
@@ -490,5 +546,10 @@ public partial class BotState
         _flashRolledByBot.Clear();
         _flashDecisions.Clear();
         _flashRejectLogged.Clear();
+        _flashBlindUntil.Clear();
     }
+
+    // A flash that was not avoided owns the bot until CurrentTime + that event's BlindDuration.
+    private bool InCommittedBlind(int botIndex, float now)
+        => _flashBlindUntil.TryGetValue(botIndex, out float until) && now < until;
 }
