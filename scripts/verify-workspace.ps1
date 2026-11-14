@@ -128,6 +128,7 @@ else {
         "addons/counterstrikesharp/plugins/TeamLineupInjector/TeamLineupInjector.csproj",
         "addons/counterstrikesharp/plugins/PlayerKnifeCustomizer/PlayerKnifeCustomizer.csproj",
         "overrides/VeryLow/botprofile.db",
+        "overrides/scripts/VeryLow/bt_config.kv3",
         "overrides/Low/botprofile.db",
         "overrides/Medium/botprofile.db",
         "overrides/High/botprofile.db"
