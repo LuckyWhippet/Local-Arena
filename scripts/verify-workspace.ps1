@@ -129,6 +129,10 @@ else {
         "addons/counterstrikesharp/plugins/PlayerKnifeCustomizer/PlayerKnifeCustomizer.csproj",
         "overrides/VeryLow/botprofile.db",
         "overrides/scripts/VeryLow/bt_config.kv3",
+        "overrides/scripts/ai/localarena/hold.kv3",
+        "overrides/scripts/ai/localarena/rush_a.kv3",
+        "overrides/scripts/ai/localarena/rush_b.kv3",
+        "overrides/scripts/ai/localarena/slow.kv3",
         "overrides/Low/botprofile.db",
         "overrides/Medium/botprofile.db",
         "overrides/High/botprofile.db"
