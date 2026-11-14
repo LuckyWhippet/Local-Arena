@@ -1,0 +1,134 @@
+/* Broadcast-style tactical board: dark navy panel, cyan accents, radar first. */
+.tac {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #e8eefc;
+}
+
+.tac-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #0b1220 0%, #132341 55%, #0d1930 100%);
+  border: 1px solid rgba(120, 180, 255, 0.22);
+}
+
+.tac-head__title { display: flex; flex-direction: column; gap: 2px; }
+.tac-head__eyebrow {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: #7fb6ff; font-weight: 700;
+}
+.tac-head__map { font-size: 22px; font-weight: 800; letter-spacing: 0.06em; }
+.tac-head__meta { font-size: 11px; color: #8aa0c4; }
+
+.tac-head__score { display: flex; align-items: center; gap: 10px; }
+.tac-head__score b { font-size: 26px; letter-spacing: 0.04em; }
+.tac-head__clock {
+  padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 12px;
+  background: rgba(255, 214, 74, 0.12); color: #ffd64a;
+  border: 1px solid rgba(255, 214, 74, 0.35); letter-spacing: 0.14em;
+}
+
+/* The radar track is sized to the square that fits the window, so the radar and
+   the side column always add up to one balanced block instead of a wide map
+   with a gap in front of the sidebar. */
+.tac-body {
+  display: grid;
+  grid-template-columns: min(calc(100% - 274px), calc(100vh - 240px)) 260px;
+  gap: 14px;
+  justify-content: center;
+  align-items: start;
+}
+@media (max-width: 1100px) { .tac-body { grid-template-columns: minmax(0, 1fr); justify-content: stretch; } .tac-radar { width: min(100%, calc(100vh - 240px)); margin-inline: auto; } }
+
+.tac-radar {
+  position: relative; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, #101b30 0%, #070c16 75%);
+  border: 1px solid rgba(120, 180, 255, 0.18);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+.tac-radar svg { display: block; width: 100%; height: 100%; }
+.tac-radar__empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #8aa0c4; font-size: 13px; text-align: center; padding: 24px;
+}
+
+.tac-lower {
+  position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 10px;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #cfe0ff;
+}
+.tac-lower b { color: #ffd64a; font-weight: 800; }
+.tac-lower span { color: #7fb6ff; font-weight: 700; }
+
+.tac-side { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 250px); overflow: auto; }
+.tac-panel {
+  border-radius: 12px; padding: 10px 12px;
+  background: rgba(12, 22, 40, 0.9); border: 1px solid rgba(120, 180, 255, 0.16);
+}
+.tac-panel__title {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #7fb6ff;
+  font-weight: 700; margin-bottom: 8px;
+}
+
+.tac-rounds { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; max-height: 128px; overflow: auto; }
+.tac-round {
+  font-size: 11px; font-weight: 700; text-align: center; padding: 4px 0; border-radius: 6px;
+  border: 1px solid transparent; color: #a9bcd8; cursor: pointer; background: rgba(255,255,255,0.03);
+}
+.tac-round.is-active { border-color: #7fb6ff; color: #fff; background: rgba(127, 182, 255, 0.18); }
+.tac-round.ct { color: #6fa8ff; }
+.tac-round.t { color: #ffb26f; }
+
+.tac-legend { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow: auto; }
+.tac-legend__row {
+  display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer;
+  padding: 2px 4px; border-radius: 6px;
+}
+.tac-legend__row:hover { background: rgba(255,255,255,0.05); }
+.tac-legend__row.is-off { opacity: 0.35; }
+.tac-legend__dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.tac-legend__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tac-legend__team { font-size: 10px; color: #8aa0c4; }
+
+/* The controls sit on the app light background, not inside the dark card, so
+   they carry their own dark surface: light-on-light was unreadable. */
+.tac-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(120deg, #0b1220 0%, #122036 100%);
+  border: 1px solid rgba(120, 180, 255, 0.22);
+}
+.tac-btn {
+  padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  color: #e6efff; background: rgba(127, 182, 255, 0.16); border: 1px solid rgba(127, 182, 255, 0.42);
+}
+.tac-btn.is-active { background: #2f6fd0; border-color: #6ba6ff; color: #fff; }
+.tac-head__meta-inline { font-size: 12px; color: #9fb6d8; }
+.tac-btn:disabled { opacity: 0.4; cursor: default; }
+.tac-slider { flex: 1; min-width: 140px; accent-color: #7fb6ff; }
+
+.tac-empty { padding: 40px; text-align: center; color: var(--text-secondary); }
+.tac-loading { padding: 40px; text-align: center; color: #8aa0c4; }
+
+/* Source/group switch strip, counted group legend and the match list that
+   labels the aggregate returns. */
+.tac-controls__label {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: #7fb6ff; font-weight: 700;
+}
+.tac-controls__sep {
+  width: 1px; align-self: stretch; min-height: 18px;
+  background: rgba(127, 182, 255, 0.22); margin: 0 4px;
+}
+.tac-btn--sm { padding: 4px 9px; font-size: 11px; }
+.tac-btn--block { width: 100%; margin-bottom: 6px; }
+.tac-legend__count { font-size: 11px; color: #9fb6d8; font-variant-numeric: tabular-nums; }
+.tac-matchlist { display: flex; flex-direction: column; gap: 4px; max-height: 170px; overflow: auto; }
+.tac-matchlist__row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #a9bcd8; }
+.tac-matchlist__row b { color: #e6efff; font-weight: 700; }
+.tac-matchlist__row span:last-child { margin-left: auto; color: #8aa0c4; }

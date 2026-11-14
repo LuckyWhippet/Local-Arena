@@ -6,6 +6,8 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 
 namespace OfflineMatchTelemetry;
 
@@ -61,9 +63,22 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
     private bool _isDeathmatch;
     private readonly Dictionary<string, DeathmatchPlayerState> _deathmatchState = new();
     private readonly List<DeathmatchLifeRecord> _deathmatchLives = [];
+    private string _csgoDir = "";
+    private const int PathSampleIntervalTicks = 8;
+    private const int PathSampleLimit = 240;
+    private readonly Dictionary<string, List<(int X, int Y)?>> _pathSamples = new();
+    private readonly Dictionary<string, (string Name, string Team)> _pathMeta = new();
+    private readonly List<GrenadeThrow> _pendingGrenades = [];
+    private readonly List<GrenadeRecord> _roundGrenades = [];
+    private readonly List<DeathPoint> _roundDeaths = [];
+    private bool _pathWindowOpen;
+    private int _pathSampleIndex;
+    private int _pathTickCounter;
+    private int _pathRound = -1;
+    private DateTimeOffset _roundStartedAt = DateTimeOffset.UtcNow;
 
     public override string ModuleName => "OfflineMatchTelemetry";
-    public override string ModuleVersion => "0.8.0";
+    public override string ModuleVersion => "0.9.0";
     public override string ModuleAuthor => "CS2-Self-Stat";
     public override string ModuleDescription => "Offline bot match SQLite telemetry exporter";
 
@@ -74,6 +89,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
 
         // Store under <csgo>/.csbip/cs2ss/ — same .csbip root used by the Local Arena Panel
         var csgoDir = Path.GetFullPath(Path.Combine(pluginDir, "..", "..", "..", ".."));
+        _csgoDir = csgoDir;
         var dataDir = Path.Combine(csgoDir, ".csbip", "cs2ss");
         Directory.CreateDirectory(dataDir);
         _databasePath = Path.Combine(dataDir, "telemetry.db");
@@ -86,6 +102,13 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         RegisterEventHandler<EventRoundEnd>(OnRoundEnd);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
+        RegisterEventHandler<EventRoundFreezeEnd>(OnFreezeEnd);
+        RegisterEventHandler<EventGrenadeThrown>(OnGrenadeThrown);
+        RegisterEventHandler<EventSmokegrenadeDetonate>(OnSmokeDetonate);
+        RegisterEventHandler<EventFlashbangDetonate>(OnFlashDetonate);
+        RegisterEventHandler<EventHegrenadeDetonate>(OnHeDetonate);
+        RegisterEventHandler<EventMolotovDetonate>(OnMolotovDetonate);
+        RegisterEventHandler<EventInfernoStartburn>(OnInfernoStartburn);
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
         RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         RegisterListener<Listeners.OnTick>(OnTick);
@@ -173,6 +196,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
             var victimState = GetRoundState(validVictim);
             victimState.Alive = false;
             victimState.Died = true;
+            RecordDeathPoint(validVictim, @event.Attacker);
             if (_livePlayers.TryGetValue(victimId, out var liveVictim))
                 _livePlayers[victimId] = liveVictim with { Alive = false };
 
@@ -212,7 +236,11 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         try
         {
             if (_isDeathmatch) PollDeathmatchPlayers();
-            else PollLivePlayerEvents();
+            else
+            {
+                PollLivePlayerEvents();
+                SamplePaths();
+            }
         }
         catch (Exception ex)
         {
@@ -320,6 +348,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         _matchStartedAt = DateTimeOffset.UtcNow;
         _matchMap = Server.MapName;
         _currentMatchId = InsertMatch(_matchStartedAt);
+        StampAiTree(_currentMatchId);
         _matchActive = true;
         _ctScore = 0;
         _tScore = 0;
@@ -570,6 +599,9 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
                 playerCommand.Parameters.AddWithValue("$clutchSize", eventState?.ClutchSize ?? 0);
                 playerCommand.ExecuteNonQuery();
             }
+            WritePaths(connection, transaction, roundId, round);
+            WriteGrenades(connection, transaction, roundId, round);
+            WriteDeaths(connection, transaction, roundId, round);
             transaction.Commit();
         }
         catch
@@ -691,6 +723,53 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
             );
             CREATE INDEX IF NOT EXISTS ix_dm_lives_match_player
                 ON deathmatch_lives (match_id, steam_id);
+            CREATE TABLE IF NOT EXISTS round_paths (
+                path_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                round_id INTEGER NOT NULL,
+                match_id INTEGER NOT NULL,
+                round_number INTEGER NOT NULL,
+                steam_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                team TEXT NOT NULL,
+                sample_hz REAL NOT NULL,
+                samples TEXT NOT NULL,
+                UNIQUE (round_id, steam_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_round_paths_match_id ON round_paths (match_id);
+            CREATE TABLE IF NOT EXISTS round_grenades (
+                grenade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                round_id INTEGER NOT NULL,
+                match_id INTEGER NOT NULL,
+                round_number INTEGER NOT NULL,
+                steam_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                team TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                thrown_seconds REAL NOT NULL,
+                detonated_seconds REAL NOT NULL,
+                from_x REAL NOT NULL,
+                from_y REAL NOT NULL,
+                from_z REAL NOT NULL,
+                to_x REAL NOT NULL,
+                to_y REAL NOT NULL,
+                to_z REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_round_grenades_match_id ON round_grenades (match_id);
+            CREATE TABLE IF NOT EXISTS round_deaths (
+                death_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                round_id INTEGER NOT NULL,
+                match_id INTEGER NOT NULL,
+                round_number INTEGER NOT NULL,
+                steam_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                team TEXT NOT NULL,
+                killer_id TEXT,
+                at_seconds REAL NOT NULL,
+                x REAL NOT NULL,
+                y REAL NOT NULL,
+                z REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_round_deaths_match_id ON round_deaths (match_id);
             """;
         command.ExecuteNonQuery();
         AddColumnIfMissing(connection, "round_players", "kast", "INTEGER NOT NULL DEFAULT 0");
@@ -730,6 +809,7 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         AddColumnIfMissing(connection, "match_players", "dm_burst_10s_2", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "match_players", "dm_burst_10s_3", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "match_players", "dm_burst_10s_4", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "matches", "ai_tree", "TEXT");
     }
 
     private static void AddColumnIfMissing(SqliteConnection connection, string table, string column, string definition)
@@ -844,6 +924,14 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         _isDeathmatch = false;
         _deathmatchState.Clear();
         _deathmatchLives.Clear();
+        _pathSamples.Clear();
+        _pathMeta.Clear();
+        _pendingGrenades.Clear();
+        _roundGrenades.Clear();
+        _roundDeaths.Clear();
+        _pathWindowOpen = false;
+        _pathSampleIndex = 0;
+        _pathRound = -1;
     }
 
     private int GetTotalRoundsPlayed() => Utilities
@@ -1122,6 +1210,16 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
 
     private void StartEventRound()
     {
+        _pathSamples.Clear();
+        _pathMeta.Clear();
+        _pendingGrenades.Clear();
+        _roundGrenades.Clear();
+        _roundDeaths.Clear();
+        _pathWindowOpen = false;
+        _pathSampleIndex = 0;
+        _pathTickCounter = 0;
+        _pathRound = _round;
+        _roundStartedAt = DateTimeOffset.UtcNow;
         _roundState.Clear();
         _pendingTrades.Clear();
         _tClutch = null;
@@ -1370,6 +1468,292 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
         }
     }
 
+    // ---- tactical capture --------------------------------------------------
+    //
+    // The tactical board needs the shape of a round, not its full simulation:
+    // the opening of the round after freeze time, where grenades landed and
+    // where bodies fell. Sampling stops after PathSampleLimit so a match costs
+    // a few hundred kilobytes instead of tens of megabytes.
+
+    private double SecondsIntoRound() => Math.Max(0, (DateTimeOffset.UtcNow - _roundStartedAt).TotalSeconds);
+
+    private HookResult OnFreezeEnd(EventRoundFreezeEnd @event, GameEventInfo info)
+    {
+        if (_isDeathmatch || !_matchActive) return HookResult.Continue;
+        StartPathWindow();
+        return HookResult.Continue;
+    }
+
+    private void StartPathWindow()
+    {
+        _pathSamples.Clear();
+        _pathMeta.Clear();
+        _pathSampleIndex = 0;
+        _pathTickCounter = 0;
+        _pathWindowOpen = true;
+        _pathRound = _round;
+        Log("Path window open for round {Round} at {Hz} Hz, {Limit} samples",
+            _round, 64.0 / PathSampleIntervalTicks, PathSampleLimit);
+    }
+
+    private void SamplePaths()
+    {
+        if (!_pathWindowOpen) return;
+        if (++_pathTickCounter < PathSampleIntervalTicks) return;
+        _pathTickCounter = 0;
+        if (_pathSampleIndex >= PathSampleLimit)
+        {
+            _pathWindowOpen = false;
+            return;
+        }
+
+        foreach (var player in PlayingPlayers())
+        {
+            var origin = player.PlayerPawn?.Value?.AbsOrigin;
+            if (origin == null) continue;
+            var id = PlayerId(player);
+            if (!_pathSamples.TryGetValue(id, out var track))
+            {
+                track = [];
+                _pathSamples[id] = track;
+            }
+            while (track.Count < _pathSampleIndex) track.Add(null);
+            track.Add(((int)MathF.Round(origin.X), (int)MathF.Round(origin.Y)));
+            _pathMeta[id] = (player.PlayerName, Team(player.Team) ?? "?");
+        }
+        _pathSampleIndex++;
+    }
+
+    private HookResult OnGrenadeThrown(EventGrenadeThrown @event, GameEventInfo info)
+    {
+        if (_isDeathmatch || !_matchActive || !_eventRoundActive) return HookResult.Continue;
+        var player = @event.Userid;
+        if (!IsPlaying(player)) return HookResult.Continue;
+        var kind = GrenadeKind(@event.Weapon);
+        if (kind == null)
+        {
+            Logger.LogInformation("[OMT] grenade weapon not mapped: {Weapon}", @event.Weapon);
+            return HookResult.Continue;
+        }
+        var validPlayer = player!;
+        var origin = validPlayer.PlayerPawn?.Value?.AbsOrigin;
+        if (origin == null) return HookResult.Continue;
+
+        _pendingGrenades.Add(new GrenadeThrow(PlayerId(validPlayer), validPlayer.PlayerName,
+            Team(validPlayer.Team) ?? "?", kind, SecondsIntoRound(), origin.X, origin.Y, origin.Z));
+        return HookResult.Continue;
+    }
+
+    private HookResult OnSmokeDetonate(EventSmokegrenadeDetonate @event, GameEventInfo info)
+    {
+        RecordGrenade("smoke", @event.Userid, @event.X, @event.Y, @event.Z);
+        return HookResult.Continue;
+    }
+
+    private HookResult OnFlashDetonate(EventFlashbangDetonate @event, GameEventInfo info)
+    {
+        RecordGrenade("flash", @event.Userid, @event.X, @event.Y, @event.Z);
+        return HookResult.Continue;
+    }
+
+    private HookResult OnHeDetonate(EventHegrenadeDetonate @event, GameEventInfo info)
+    {
+        RecordGrenade("he", @event.Userid, @event.X, @event.Y, @event.Z);
+        return HookResult.Continue;
+    }
+
+    private HookResult OnMolotovDetonate(EventMolotovDetonate @event, GameEventInfo info)
+    {
+        RecordGrenade("molotov", @event.Userid, @event.X, @event.Y, @event.Z);
+        return HookResult.Continue;
+    }
+
+    private HookResult OnInfernoStartburn(EventInfernoStartburn @event, GameEventInfo info)
+    {
+        // The molotov detonate already carries the landing point; a startburn is
+        // registered only when the throw was not matched yet, so nothing is lost
+        // when the engine reports the fire later than the detonation.
+        if (_pendingGrenades.Count > 0) RecordGrenade("molotov", null, @event.X, @event.Y, @event.Z);
+        return HookResult.Continue;
+    }
+
+    private void RecordGrenade(string kind, CCSPlayerController? thrower, float x, float y, float z)
+    {
+        if (_isDeathmatch || !_matchActive) return;
+        string? throwerId = thrower is { IsValid: true } ? PlayerId(thrower) : null;
+        var index = -1;
+        for (var i = _pendingGrenades.Count - 1; i >= 0; i--)
+        {
+            var candidate = _pendingGrenades[i];
+            if (candidate.Kind != kind) continue;
+            if (throwerId != null && candidate.SteamId != throwerId) continue;
+            index = i;
+            break;
+        }
+        if (index < 0) return;
+
+        var thrown = _pendingGrenades[index];
+        _pendingGrenades.RemoveAt(index);
+        _roundGrenades.Add(new GrenadeRecord(thrown.SteamId, thrown.Name, thrown.Team, kind,
+            thrown.AtSeconds, SecondsIntoRound(), thrown.X, thrown.Y, thrown.Z, x, y, z));
+    }
+
+    private void RecordDeathPoint(CCSPlayerController victim, CCSPlayerController? attacker)
+    {
+        if (_isDeathmatch || !_matchActive) return;
+        var origin = victim.PlayerPawn?.Value?.AbsOrigin;
+        if (origin == null) return;
+        _roundDeaths.Add(new DeathPoint(PlayerId(victim), victim.PlayerName, Team(victim.Team) ?? "?",
+            attacker is { IsValid: true } ? PlayerId(attacker) : null,
+            SecondsIntoRound(), origin.X, origin.Y, origin.Z));
+    }
+
+    private static string? GrenadeKind(string? weapon)
+    {
+        // The event reports either the entity name or the plain item name
+        // depending on the build, so the prefix is stripped before matching.
+        if (string.IsNullOrWhiteSpace(weapon)) return null;
+        var name = weapon.Replace("weapon_", "", StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
+        return name switch
+        {
+            "smokegrenade" => "smoke",
+            "flashbang" => "flash",
+            "hegrenade" => "he",
+            "molotov" => "molotov",
+            "incgrenade" => "molotov",
+            "decoy" => "decoy",
+            _ => null
+        };
+    }
+
+    private void WritePaths(SqliteConnection connection, SqliteTransaction transaction, long roundId, int round)
+    {
+        if (_pathRound != round || _pathSamples.Count == 0) return;
+        var hz = 64.0 / PathSampleIntervalTicks;
+        foreach (var pair in _pathSamples)
+        {
+            if (!_pathMeta.TryGetValue(pair.Key, out var meta)) continue;
+            var samples = pair.Value;
+            if (samples.Count == 0) continue;
+
+            var builder = new StringBuilder(samples.Count * 12);
+            (int X, int Y) last = (0, 0);
+            for (var i = 0; i < samples.Count; i++)
+            {
+                if (samples[i] is { } value) last = value;
+                if (i > 0) builder.Append(';');
+                builder.Append(last.X).Append(',').Append(last.Y);
+            }
+
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO round_paths (round_id, match_id, round_number, steam_id, name, team, sample_hz, samples)
+                VALUES ($roundId, $matchId, $roundNumber, $steamId, $name, $team, $hz, $samples)
+                ON CONFLICT (round_id, steam_id) DO NOTHING;
+                """;
+            command.Parameters.AddWithValue("$roundId", roundId);
+            command.Parameters.AddWithValue("$matchId", _currentMatchId);
+            command.Parameters.AddWithValue("$roundNumber", round);
+            command.Parameters.AddWithValue("$steamId", pair.Key);
+            command.Parameters.AddWithValue("$name", meta.Name);
+            command.Parameters.AddWithValue("$team", meta.Team);
+            command.Parameters.AddWithValue("$hz", hz);
+            command.Parameters.AddWithValue("$samples", builder.ToString());
+            command.ExecuteNonQuery();
+        }
+        _pathSamples.Clear();
+        _pathMeta.Clear();
+        _pathWindowOpen = false;
+    }
+
+    private void WriteGrenades(SqliteConnection connection, SqliteTransaction transaction, long roundId, int round)
+    {
+        if (_roundGrenades.Count == 0) return;
+        foreach (var grenade in _roundGrenades)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO round_grenades (round_id, match_id, round_number, steam_id, name, team, kind,
+                    thrown_seconds, detonated_seconds, from_x, from_y, from_z, to_x, to_y, to_z)
+                VALUES ($roundId, $matchId, $roundNumber, $steamId, $name, $team, $kind,
+                    $thrown, $detonated, $fromX, $fromY, $fromZ, $toX, $toY, $toZ);
+                """;
+            command.Parameters.AddWithValue("$roundId", roundId);
+            command.Parameters.AddWithValue("$matchId", _currentMatchId);
+            command.Parameters.AddWithValue("$roundNumber", round);
+            command.Parameters.AddWithValue("$steamId", grenade.SteamId);
+            command.Parameters.AddWithValue("$name", grenade.Name);
+            command.Parameters.AddWithValue("$team", grenade.Team);
+            command.Parameters.AddWithValue("$kind", grenade.Kind);
+            command.Parameters.AddWithValue("$thrown", grenade.ThrownSeconds);
+            command.Parameters.AddWithValue("$detonated", grenade.DetonatedSeconds);
+            command.Parameters.AddWithValue("$fromX", grenade.FromX);
+            command.Parameters.AddWithValue("$fromY", grenade.FromY);
+            command.Parameters.AddWithValue("$fromZ", grenade.FromZ);
+            command.Parameters.AddWithValue("$toX", grenade.ToX);
+            command.Parameters.AddWithValue("$toY", grenade.ToY);
+            command.Parameters.AddWithValue("$toZ", grenade.ToZ);
+            command.ExecuteNonQuery();
+        }
+        _roundGrenades.Clear();
+    }
+
+    private void WriteDeaths(SqliteConnection connection, SqliteTransaction transaction, long roundId, int round)
+    {
+        if (_roundDeaths.Count == 0) return;
+        foreach (var death in _roundDeaths)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO round_deaths (round_id, match_id, round_number, steam_id, name, team,
+                    killer_id, at_seconds, x, y, z)
+                VALUES ($roundId, $matchId, $roundNumber, $steamId, $name, $team,
+                    $killerId, $atSeconds, $x, $y, $z);
+                """;
+            command.Parameters.AddWithValue("$roundId", roundId);
+            command.Parameters.AddWithValue("$matchId", _currentMatchId);
+            command.Parameters.AddWithValue("$roundNumber", round);
+            command.Parameters.AddWithValue("$steamId", death.SteamId);
+            command.Parameters.AddWithValue("$name", death.Name);
+            command.Parameters.AddWithValue("$team", death.Team);
+            command.Parameters.AddWithValue("$killerId", (object?)death.KillerId ?? DBNull.Value);
+            command.Parameters.AddWithValue("$atSeconds", death.AtSeconds);
+            command.Parameters.AddWithValue("$x", death.X);
+            command.Parameters.AddWithValue("$y", death.Y);
+            command.Parameters.AddWithValue("$z", death.Z);
+            command.ExecuteNonQuery();
+        }
+        _roundDeaths.Clear();
+    }
+
+    private void StampAiTree(int matchId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_csgoDir)) return;
+            var path = Path.Combine(_csgoDir, ".csbip", "active-tactics.json");
+            if (!File.Exists(path)) return;
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var tree = document.RootElement.TryGetProperty("tree", out var value) ? value.GetString() : null;
+            if (string.IsNullOrWhiteSpace(tree)) return;
+
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE matches SET ai_tree = $tree WHERE match_id = $matchId;";
+            command.Parameters.AddWithValue("$tree", tree);
+            command.Parameters.AddWithValue("$matchId", matchId);
+            command.ExecuteNonQuery();
+            Log("Match {MatchId} tactics tree: {Tree}", matchId, tree);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "[OMT] could not stamp the tactics tree");
+        }
+    }
+
     private record struct PrevStat(int Kills, int Deaths, int Assists, int Damage, int HeadShotKills);
     private record PlayerSnapshot(
         string SteamId, string Name, string Team, bool IsBot, bool Alive, int Health,
@@ -1433,4 +1817,9 @@ public class OfflineMatchTelemetryPlugin : BasePlugin
     private record UnresolvedDeath(string VictimId, CsTeam VictimTeam, DateTimeOffset At);
     private record ClutchCandidate(string PlayerId, CsTeam Team, int Opponents);
     private record LivePlayerState(bool Alive, int Kills, int Assists);
+    private record GrenadeThrow(string SteamId, string Name, string Team, string Kind, double AtSeconds, float X, float Y, float Z);
+    private record GrenadeRecord(string SteamId, string Name, string Team, string Kind, double ThrownSeconds,
+        double DetonatedSeconds, float FromX, float FromY, float FromZ, float ToX, float ToY, float ToZ);
+    private record DeathPoint(string SteamId, string Name, string Team, string? KillerId, double AtSeconds,
+        float X, float Y, float Z);
 }

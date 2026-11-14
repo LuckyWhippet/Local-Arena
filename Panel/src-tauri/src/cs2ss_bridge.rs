@@ -1582,3 +1582,641 @@ pub fn prune_cs2ss_bot_players(csgo: String, match_id: i64) -> Result<(usize, us
 
     Ok((mp, rp))
 }
+
+// ---- tactical board --------------------------------------------------------
+//
+// The board draws the opening of a round on the radar. It needs three things
+// the per-round tables already hold: the sampled paths, the grenade arcs and the
+// death points. Everything is returned downsampled (4 Hz) because 8 Hz doubles
+// the payload without a visible difference at radar scale.
+
+fn table_exists(conn: &rusqlite::Connection, name: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        rusqlite::params![name],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count > 0)
+    .unwrap_or(false)
+}
+
+fn parse_points(samples: &str) -> Vec<[i32; 2]> {
+    let mut points = Vec::new();
+    for (index, pair) in samples.split(';').enumerate() {
+        // Every other sample: 8 Hz in the database, 4 Hz on screen.
+        if index % 2 != 0 { continue; }
+        let mut parts = pair.split(',');
+        let (Some(x), Some(y)) = (parts.next(), parts.next()) else { continue };
+        let (Ok(x), Ok(y)) = (x.parse::<f32>(), y.parse::<f32>()) else { continue };
+        points.push([x.round() as i32, y.round() as i32]);
+    }
+    points
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalMatch {
+    pub match_id: i64,
+    pub map: String,
+    pub started_at: String,
+    pub rounds_played: Option<i32>,
+    pub ai_tree: Option<String>,
+    pub rounds_with_paths: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalRound {
+    pub round_number: i32,
+    pub winner_team: Option<String>,
+    pub team_a_score: i32,
+    pub team_b_score: i32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalPath {
+    pub round_number: i32,
+    pub steam_id: String,
+    pub name: String,
+    pub team: String,
+    pub sample_hz: f64,
+    pub points: Vec<[i32; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalGrenade {
+    pub round_number: i32,
+    pub steam_id: String,
+    pub name: String,
+    pub team: String,
+    pub kind: String,
+    pub thrown_seconds: f64,
+    pub detonated_seconds: f64,
+    pub from: [f64; 3],
+    pub to: [f64; 3],
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalDeath {
+    pub round_number: i32,
+    pub steam_id: String,
+    pub name: String,
+    pub team: String,
+    pub at_seconds: f64,
+    pub position: [f64; 2],
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalMatchData {
+    pub match_id: i64,
+    pub map: String,
+    pub started_at: String,
+    pub ai_tree: Option<String>,
+    pub rounds: Vec<Cs2ssTacticalRound>,
+    pub paths: Vec<Cs2ssTacticalPath>,
+    pub grenades: Vec<Cs2ssTacticalGrenade>,
+    pub deaths: Vec<Cs2ssTacticalDeath>,
+}
+
+#[tauri::command]
+pub fn list_cs2ss_tactical_matches(csgo: String) -> Result<Vec<Cs2ssTacticalMatch>> {
+    let conn = open_db(&csgo)?;
+    if !table_exists(&conn, "round_paths") {
+        return Ok(Vec::new());
+    }
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT m.match_id, m.map, m.started_at, m.rounds_played, m.ai_tree,
+                    (SELECT COUNT(DISTINCT rp.round_id) FROM round_paths rp WHERE rp.match_id = m.match_id)
+             FROM matches m
+             WHERE EXISTS (SELECT 1 FROM round_paths rp WHERE rp.match_id = m.match_id)
+             ORDER BY m.started_at DESC",
+        )
+        .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(Cs2ssTacticalMatch {
+                match_id: row.get(0)?,
+                map: row.get(1)?,
+                started_at: row.get(2)?,
+                rounds_played: row.get(3)?,
+                ai_tree: row.get(4)?,
+                rounds_with_paths: row.get(5)?,
+            })
+        })
+        .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| AppError::invalid(format!("Query error: {e}")))
+}
+
+#[tauri::command]
+pub fn get_cs2ss_tactical_match(csgo: String, match_id: i64) -> Result<Cs2ssTacticalMatchData> {
+    let conn = open_db(&csgo)?;
+
+    let (map, started_at, ai_tree) = conn
+        .query_row(
+            "SELECT map, started_at, ai_tree FROM matches WHERE match_id = ?1",
+            rusqlite::params![match_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?)),
+        )
+        .map_err(|e| AppError::invalid(format!("Match {match_id} not found: {e}")))?;
+
+    let mut rounds = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT round_number, winner_team, team_a_score, team_b_score
+                 FROM rounds WHERE match_id = ?1 ORDER BY round_number",
+            )
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params![match_id], |row| {
+                Ok(Cs2ssTacticalRound {
+                    round_number: row.get::<_, i64>(0)? as i32,
+                    winner_team: row.get(1)?,
+                    team_a_score: row.get(2)?,
+                    team_b_score: row.get(3)?,
+                })
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            rounds.push(row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?);
+        }
+    }
+
+    let mut paths = Vec::new();
+    if table_exists(&conn, "round_paths") {
+        let mut stmt = conn
+            .prepare(
+                "SELECT round_number, steam_id, name, team, sample_hz, samples
+                 FROM round_paths WHERE match_id = ?1
+                 ORDER BY round_number, team, name",
+            )
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params![match_id], |row| {
+                Ok((
+                    row.get::<_, i64>(0)? as i32,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, f64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            let (round_number, steam_id, name, team, sample_hz, samples) =
+                row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+            let points = parse_points(&samples);
+            if points.len() < 2 { continue; }
+            paths.push(Cs2ssTacticalPath { round_number, steam_id, name, team, sample_hz, points });
+        }
+    }
+
+    let mut grenades = Vec::new();
+    if table_exists(&conn, "round_grenades") {
+        let mut stmt = conn
+            .prepare(
+                "SELECT round_number, steam_id, name, team, kind, thrown_seconds, detonated_seconds,
+                        from_x, from_y, from_z, to_x, to_y, to_z
+                 FROM round_grenades WHERE match_id = ?1 ORDER BY round_number, detonated_seconds",
+            )
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params![match_id], |row| {
+                Ok(Cs2ssTacticalGrenade {
+                    round_number: row.get::<_, i64>(0)? as i32,
+                    steam_id: row.get(1)?,
+                    name: row.get(2)?,
+                    team: row.get(3)?,
+                    kind: row.get(4)?,
+                    thrown_seconds: row.get(5)?,
+                    detonated_seconds: row.get(6)?,
+                    from: [row.get(7)?, row.get(8)?, row.get(9)?],
+                    to: [row.get(10)?, row.get(11)?, row.get(12)?],
+                })
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            grenades.push(row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?);
+        }
+    }
+
+    let mut deaths = Vec::new();
+    if table_exists(&conn, "round_deaths") {
+        let mut stmt = conn
+            .prepare(
+                "SELECT round_number, steam_id, name, team, at_seconds, x, y
+                 FROM round_deaths WHERE match_id = ?1 ORDER BY round_number, at_seconds",
+            )
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params![match_id], |row| {
+                Ok(Cs2ssTacticalDeath {
+                    round_number: row.get::<_, i64>(0)? as i32,
+                    steam_id: row.get(1)?,
+                    name: row.get(2)?,
+                    team: row.get(3)?,
+                    at_seconds: row.get(4)?,
+                    position: [row.get(5)?, row.get(6)?],
+                })
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            deaths.push(row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?);
+        }
+    }
+
+    Ok(Cs2ssTacticalMatchData { match_id, map, started_at, ai_tree, rounds, paths, grenades, deaths })
+}
+
+// ---- tactical board: cross-match aggregate --------------------------------
+//
+// The single-match view answers "what did this round look like". This command
+// answers "how do the openings on one map differ when the tree, the player, the
+// role, the round winner or the side changes": it returns the same downsampled
+// opening paths across the last few completed matches, each tagged with the
+// context the board groups on, plus the match list the board labels them with.
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalAggregateMatch {
+    pub match_id: i64,
+    pub started_at: String,
+    pub ai_tree: Option<String>,
+    pub rounds: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalAggregatePath {
+    pub match_id: i64,
+    pub round_number: i32,
+    pub ai_tree: Option<String>,
+    pub winner: Option<String>,
+    pub steam_id: String,
+    pub name: String,
+    pub team: String,
+    pub sample_hz: f64,
+    pub points: Vec<[i32; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssTacticalAggregate {
+    pub map: String,
+    pub match_limit: i64,
+    pub matches: Vec<Cs2ssTacticalAggregateMatch>,
+    pub paths: Vec<Cs2ssTacticalAggregatePath>,
+}
+
+#[tauri::command]
+pub fn get_cs2ss_tactical_aggregate(
+    csgo: String,
+    map: String,
+    match_limit: i64,
+) -> Result<Cs2ssTacticalAggregate> {
+    // The board only asks for 3 or 5; the clamp keeps a caller from pulling the
+    // whole history through the IPC boundary.
+    let limit = match_limit.clamp(1, 10);
+    let map = map.trim().to_string();
+    let conn = open_db(&csgo)?;
+
+    let mut aggregate = Cs2ssTacticalAggregate {
+        map: map.clone(),
+        match_limit: limit,
+        matches: Vec::new(),
+        paths: Vec::new(),
+    };
+
+    // No recorded paths (or no telemetry database at all) is a normal state for
+    // the board, not an error: the UI shows its own empty message instead.
+    if map.is_empty() || !table_exists(&conn, "round_paths") || !table_exists(&conn, "matches") {
+        return Ok(aggregate);
+    }
+
+    // "rounds" is optional: an older database may predate it, and then the round
+    // count falls back to matches.rounds_played.
+    let has_rounds = table_exists(&conn, "rounds");
+    let match_sql = if has_rounds {
+        "SELECT m.match_id, m.started_at, m.ai_tree,
+                (SELECT COUNT(*) FROM rounds r WHERE r.match_id = m.match_id)
+         FROM matches m
+         WHERE m.map = ?1 AND m.status = 'completed'
+           AND EXISTS (SELECT 1 FROM round_paths rp WHERE rp.match_id = m.match_id)
+         ORDER BY m.started_at DESC, m.match_id DESC
+         LIMIT ?2"
+    } else {
+        "SELECT m.match_id, m.started_at, m.ai_tree,
+                COALESCE(m.rounds_played, (SELECT COUNT(DISTINCT rp.round_number)
+                                           FROM round_paths rp WHERE rp.match_id = m.match_id))
+         FROM matches m
+         WHERE m.map = ?1 AND m.status = 'completed'
+           AND EXISTS (SELECT 1 FROM round_paths rp WHERE rp.match_id = m.match_id)
+         ORDER BY m.started_at DESC, m.match_id DESC
+         LIMIT ?2"
+    };
+
+    {
+        let mut stmt = conn
+            .prepare(match_sql)
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params![&map, limit], |row| {
+                Ok(Cs2ssTacticalAggregateMatch {
+                    match_id: row.get(0)?,
+                    started_at: row.get(1)?,
+                    ai_tree: row.get(2)?,
+                    rounds: row.get(3)?,
+                })
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            aggregate
+                .matches
+                .push(row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?);
+        }
+    }
+
+    if aggregate.matches.is_empty() {
+        return Ok(aggregate);
+    }
+
+    let match_ids: Vec<i64> = aggregate.matches.iter().map(|item| item.match_id).collect();
+    let placeholders = vec!["?"; match_ids.len()].join(",");
+    // The round winner is joined on (match_id, round_number): that keeps working
+    // on a database whose round ids were rebuilt by an older plugin version.
+    let path_sql = if has_rounds {
+        format!(
+            "SELECT rp.match_id, rp.round_number, m.ai_tree, r.winner_team,
+                    rp.steam_id, rp.name, rp.team, rp.sample_hz, rp.samples
+             FROM round_paths rp
+             JOIN matches m ON m.match_id = rp.match_id
+             LEFT JOIN rounds r ON r.match_id = rp.match_id AND r.round_number = rp.round_number
+             WHERE rp.match_id IN ({placeholders})
+             ORDER BY rp.match_id DESC, rp.round_number, rp.team, rp.name"
+        )
+    } else {
+        format!(
+            "SELECT rp.match_id, rp.round_number, m.ai_tree, NULL,
+                    rp.steam_id, rp.name, rp.team, rp.sample_hz, rp.samples
+             FROM round_paths rp
+             JOIN matches m ON m.match_id = rp.match_id
+             WHERE rp.match_id IN ({placeholders})
+             ORDER BY rp.match_id DESC, rp.round_number, rp.team, rp.name"
+        )
+    };
+
+    {
+        let mut stmt = conn
+            .prepare(&path_sql)
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(match_ids.iter()), |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)? as i32,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, f64>(7)?,
+                    row.get::<_, String>(8)?,
+                ))
+            })
+            .map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+        for row in rows {
+            let (match_id, round_number, ai_tree, winner, steam_id, name, team, sample_hz, samples) =
+                row.map_err(|e| AppError::invalid(format!("Query error: {e}")))?;
+            let points = parse_points(&samples);
+            if points.len() < 2 {
+                continue;
+            }
+            aggregate.paths.push(Cs2ssTacticalAggregatePath {
+                match_id,
+                round_number,
+                ai_tree,
+                winner,
+                steam_id,
+                name,
+                team,
+                sample_hz,
+                points,
+            });
+        }
+    }
+
+    Ok(aggregate)
+}
+
+// ---- bot roles ------------------------------------------------------------
+//
+// A telemetry row only carries a display name. The role a bot plays lives in the
+// bot profiles the match coordinator ships, so the board reads those files and
+// joins the two by name: "all snipers" instead of "all paths".
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cs2ssBotRole {
+    pub name: String,
+    pub role: String,
+    pub weapon_template: String,
+    pub skill_template: String,
+    pub aggression: f64,
+    pub teamwork: f64,
+}
+
+/// Difficulty folders the match coordinator writes, softest first: the first
+/// file that defines a name wins, so a name repeated across difficulties keeps
+/// the profile from the lower difficulty.
+const BOT_ROLE_DIFFICULTIES: [&str; 4] = ["VeryLow", "Low", "Medium", "High"];
+const BOT_PERSONALITY_SUFFIX: &str = "Personality";
+const BOT_ROLE_UNKNOWN: &str = "Unknown";
+
+#[derive(Default)]
+struct BotTemplateStats {
+    aggression: Option<f64>,
+    teamwork: Option<f64>,
+}
+
+/// Reads a "Template <name>" line. The name may be quoted and may carry a
+/// trailing "// comment".
+fn bot_template_name(line: &str) -> Option<String> {
+    let mut parts = line.splitn(2, char::is_whitespace);
+    if !parts.next()?.eq_ignore_ascii_case("template") {
+        return None;
+    }
+    let rest = parts.next()?.split("//").next().unwrap_or("").trim();
+    let name = rest.trim_matches('"').trim().to_string();
+    if name.is_empty() { None } else { Some(name) }
+}
+
+/// Reads a "<skill>+<weapon>+<Personality>" profile line. The quoted name
+/// is taken verbatim up to the closing quote, so spaces and non-ASCII
+/// characters ("Zhang Weiwei", "小胖") survive untouched.
+fn bot_profile_line(line: &str) -> Option<(Vec<String>, String)> {
+    let mut parts = line.splitn(2, char::is_whitespace);
+    let composite = parts.next()?;
+    if !composite.contains('+') {
+        return None;
+    }
+    if !composite
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '+')
+    {
+        return None;
+    }
+    let rest = parts.next()?.trim_start();
+    let rest = rest.strip_prefix('"')?;
+    let name = rest.split('"').next().unwrap_or("").trim();
+    if name.is_empty() {
+        return None;
+    }
+    let templates: Vec<String> = composite
+        .split('+')
+        .filter(|part| !part.is_empty())
+        .map(str::to_string)
+        .collect();
+    Some((templates, name.to_string()))
+}
+
+fn bot_role_from_profile(
+    templates: &std::collections::HashMap<String, BotTemplateStats>,
+    composite: &[String],
+    name: String,
+) -> Cs2ssBotRole {
+    let mut parts: Vec<String> = composite.to_vec();
+    let personality = parts
+        .iter()
+        .position(|part| part.ends_with(BOT_PERSONALITY_SUFFIX));
+    let personality_name = personality.map(|index| parts.remove(index));
+    let role = personality_name
+        .as_deref()
+        .map(|part| part.strip_suffix(BOT_PERSONALITY_SUFFIX).unwrap_or(part))
+        .filter(|part| !part.is_empty())
+        .unwrap_or(BOT_ROLE_UNKNOWN)
+        .to_string();
+    // The composite is <skill>+<weapon>+<personality>; whatever is left after the
+    // personality is the skill template followed by the weapon template(s).
+    let skill_template = parts.first().cloned().unwrap_or_default();
+    let weapon_template = if parts.len() > 1 {
+        parts[1..].join("+")
+    } else {
+        String::new()
+    };
+
+    // Personality templates carry the behaviour numbers; the skill and weapon
+    // templates are only consulted when a personality leaves them out.
+    let lookups = [
+        personality_name.as_deref(),
+        Some(weapon_template.as_str()),
+        Some(skill_template.as_str()),
+    ];
+    let aggression = lookups
+        .iter()
+        .flatten()
+        .filter_map(|template| templates.get(*template))
+        .find_map(|stats| stats.aggression)
+        .unwrap_or(0.0);
+    let teamwork = lookups
+        .iter()
+        .flatten()
+        .filter_map(|template| templates.get(*template))
+        .find_map(|stats| stats.teamwork)
+        .unwrap_or(0.0);
+
+    Cs2ssBotRole {
+        name,
+        role,
+        weapon_template,
+        skill_template,
+        aggression,
+        teamwork,
+    }
+}
+
+fn parse_bot_profiles(text: &str) -> Vec<Cs2ssBotRole> {
+    use std::collections::HashMap;
+    let mut templates: HashMap<String, BotTemplateStats> = HashMap::new();
+    let mut profiles: Vec<(Vec<String>, String)> = Vec::new();
+    // The block currently open between a "Template <name>" line and its "End".
+    let mut open: Option<(String, BotTemplateStats)> = None;
+
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with("//") {
+            continue;
+        }
+        if let Some(name) = bot_template_name(line) {
+            open = Some((name, BotTemplateStats::default()));
+            continue;
+        }
+        if line.eq_ignore_ascii_case("end") {
+            if let Some((name, stats)) = open.take() {
+                templates.insert(name, stats);
+            }
+            continue;
+        }
+        if let Some((_, stats)) = open.as_mut() {
+            // Inside a block every line is a "<key> = <value>" pair.
+            if let Some((key, value)) = line.split_once('=') {
+                let value = value.split("//").next().unwrap_or("").trim();
+                if key.trim().eq_ignore_ascii_case("aggression") {
+                    stats.aggression = value.parse::<f64>().ok();
+                } else if key.trim().eq_ignore_ascii_case("teamwork") {
+                    stats.teamwork = value.parse::<f64>().ok();
+                }
+            }
+            continue;
+        }
+        // Outside a block a line is either a profile reference such as
+        // ProSlow+SniperPro+SniperPersonality "Zhang Weiwei", or noise that the
+        // parser ignores.
+        if let Some(profile) = bot_profile_line(line) {
+            profiles.push(profile);
+        }
+    }
+
+    profiles
+        .into_iter()
+        .map(|(composite, name)| bot_role_from_profile(&templates, &composite, name))
+        .collect()
+}
+
+#[tauri::command]
+pub fn get_cs2ss_bot_roles(csgo: String) -> Result<Vec<Cs2ssBotRole>> {
+    let profiles = validated_csgo(&csgo)?
+        .join("addons")
+        .join("counterstrikesharp")
+        .join("plugins")
+        .join("PlusMatchCoordinator")
+        .join("profiles");
+
+    let mut roles: Vec<Cs2ssBotRole> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for difficulty in BOT_ROLE_DIFFICULTIES {
+        // A missing difficulty folder is normal: the install may ship only some
+        // of them, and the board simply groups those names as unknown.
+        let Ok(text) = std::fs::read_to_string(profiles.join(difficulty).join("botprofile.db")) else {
+            continue;
+        };
+        for role in parse_bot_profiles(&text) {
+            if seen.insert(role.name.clone()) {
+                roles.push(role);
+            }
+        }
+    }
+    roles.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(roles)
+}
+
+

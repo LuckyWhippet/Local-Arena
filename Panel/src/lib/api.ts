@@ -7,6 +7,10 @@ import type {
   Cs2ssMatchWithStats,
   Cs2ssConfig,
   Cs2ssDmOverview,
+  Cs2ssTacticalMatch,
+  Cs2ssTacticalMatchData,
+  Cs2ssTacticalAggregate,
+  Cs2ssBotRole,
 } from "../data/cs2ssTypes";
 
 function invoke<T>(command: string, args?: Record<string, unknown>) {
@@ -764,4 +768,12 @@ export const api = {
     invoke<number>("delete_cs2ss_matches", { csgo, matchIds }),
   pruneCs2ssBotPlayers: (csgo: string, matchId: number) =>
     invoke<[number, number]>("prune_cs2ss_bot_players", { csgo, matchId }),
+  listCs2ssTacticalMatches: (csgo: string) =>
+    invoke<Cs2ssTacticalMatch[]>("list_cs2ss_tactical_matches", { csgo }),
+  getCs2ssTacticalMatch: (csgo: string, matchId: number) =>
+    invoke<Cs2ssTacticalMatchData>("get_cs2ss_tactical_match", { csgo, matchId }),
+  getCs2ssTacticalAggregate: (csgo: string, map: string, matchLimit: number) =>
+    invoke<Cs2ssTacticalAggregate>("get_cs2ss_tactical_aggregate", { csgo, map, matchLimit }),
+  getCs2ssBotRoles: (csgo: string) =>
+    invoke<Cs2ssBotRole[]>("get_cs2ss_bot_roles", { csgo }),
 };

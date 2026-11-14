@@ -6,12 +6,13 @@ import type { Cs2ssOverviewResponse, Cs2ssPlayerDetailResponse, Cs2ssDmOverview,
 import { cs2ssCalcRating, cs2ssCalcAdr, cs2ssCalcKast } from "../data/cs2ssRating";
 import { cs2ssMapLabel } from "../data/cs2ssMaps";
 import StatsMatchHistory from "./StatsMatchHistory";
+import TacticalBoard from "./TacticalBoard";
 import StatsMatchDetail from "./StatsMatchDetail";
 import { useStore } from "../state/store";
 import { useT } from "../i18n";
 import "./StatsPanel.css";
 
-type SubView = "dashboard" | "history" | "matchDetail";
+type SubView = "dashboard" | "history" | "matchDetail" | "tactical";
 const HI = "#20b486", MID = "#e67e22", LO = "#e05d75";
 function rcol(r: number) { return r >= 1.1 ? HI : r >= 0.9 ? MID : LO; }
 function fmtD(iso: string) { try { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; } catch { return iso; } }
@@ -155,6 +156,7 @@ const [o, ms] = await Promise.all([api.getCs2ssOverview(csgo), api.listCs2ssMatc
 
   if (sub === "matchDetail" && selMatch > 0) return <StatsMatchDetail csgo={csgo} matchId={selMatch} onBack={() => setSub("dashboard")} />;
   if (sub === "history") return <StatsMatchHistory csgo={csgo} onOpenMatch={id => { setSelMatch(id); setSub("matchDetail"); }} onBack={() => setSub("dashboard")} />;
+  if (sub === "tactical") return <TacticalBoard csgo={csgo} onBack={() => setSub("dashboard")} />;
   if (loading) return <div className="stats-panel"><div className="stats-panel__loading">{t("stats.loading")}</div></div>;
   if (err && !data) return <div className="stats-panel"><div className="stats-panel__empty">{t("stats.connectionError")}</div></div>;
   if (!data) return <div className="stats-panel"><div className="stats-panel__loading">{t("stats.loading")}</div></div>;
@@ -185,6 +187,7 @@ const [o, ms] = await Promise.all([api.getCs2ssOverview(csgo), api.listCs2ssMatc
           <button className={mode === "competitive" ? "active" : ""} onClick={() => setMode("competitive")}>{t("stats.competitive")}<small>{comp.length}</small></button>
           <button className={mode === "deathmatch" ? "active" : ""} onClick={() => setMode("deathmatch")}>{t("stats.deathmatch")}<small>{dms.length}</small></button>
           <button className="stats-mode-switch__all" onClick={() => setSub("history")}>{t("stats.allMatches")} →</button>
+          <button className="stats-mode-switch__all" onClick={() => setSub("tactical")}>{t("tactical.title")} →</button>
           <button className="stats-mode-switch__settings" onClick={openConfig} title={t("stats.editSteamId")} aria-label={t("stats.editSteamId")}><Settings2 size={16} /></button>
         </div>
       </div>
