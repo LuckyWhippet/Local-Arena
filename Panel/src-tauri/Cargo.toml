@@ -1,6 +1,6 @@
 [package]
 name = "cs2-bot-improver-plus-panel"
-version = "1.6.2+0"
+version = "1.6.3+0"
 description = "CS2BotImproverPlus Panel"
 authors = ["ed0ard", "CS2BotImproverPlus contributors"]
 edition = "2024"

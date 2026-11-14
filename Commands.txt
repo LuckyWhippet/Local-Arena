@@ -2,6 +2,10 @@ GAME MODE
 scouts_on
 scouts_off
 
+MATCH CONTROL
+mp_pause_match
+mp_unpause_match
+
 CONNECTION
 status
 
