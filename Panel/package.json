@@ -1,7 +1,7 @@
 {
   "name": "cs2-bot-improver-plus-panel",
   "private": true,
-  "version": "1.6.3+0",
+  "version": "1.6.4+0",
   "type": "module",
   "scripts": {
     "dev": "vite",

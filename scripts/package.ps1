@@ -324,6 +324,11 @@ Copy-Item -LiteralPath (Join-Path $repo "addons\counterstrikesharp\plugins\BotRa
 Copy-Tree $pluginBuild (Join-Path $payload "addons\counterstrikesharp\plugins\PlayerKnifeCustomizer")
 Copy-Tree $botImplBuild (Join-Path $payload "addons\counterstrikesharp\plugins\BotHiderImpl")
 Copy-Tree $botApiBuild (Join-Path $payload "addons\counterstrikesharp\shared\BotHiderApi")
+$roundRulesBuild = Join-Path $repo "addons\counterstrikesharp\plugins\PlusRoundRules\bin\Release\net10.0"
+if (-not (Test-Path -LiteralPath (Join-Path $roundRulesBuild "PlusRoundRules.dll"))) {
+    throw "Expected PlusRoundRules build output was not produced: $roundRulesBuild"
+}
+Copy-Tree $roundRulesBuild (Join-Path $payload "addons\counterstrikesharp\plugins\PlusRoundRules")
 $openRatingModelPath = Join-Path $repo "addons\counterstrikesharp\shared\MatchCore\open-rating-3.0-proxy-v1.json"
 $openRatingModel = Get-Content -LiteralPath $openRatingModelPath -Raw | ConvertFrom-Json
 if (-not $openRatingModel.release_gate.passed) {

@@ -494,6 +494,7 @@ if ($PackageRoot) {
         "addons/RayTrace/bin/win64/RayTrace.dll",
         "addons/counterstrikesharp/plugins/RayTraceImpl/RayTraceImpl.dll",
         "addons/counterstrikesharp/plugins/BotAI/BotAI.dll",
+        "addons/counterstrikesharp/plugins/PlusRoundRules/PlusRoundRules.dll",
         "addons/counterstrikesharp/plugins/BotAimImprover/BotAimImprover.dll",
         "addons/counterstrikesharp/plugins/BotBuy/BotBuy.dll",
         "addons/counterstrikesharp/plugins/BotControllerImpl/BotControllerImpl.dll",
